@@ -31,7 +31,7 @@ elseif script_slot == "Scripts::AptCache::Command" then
 		os.execute(helper.." "..helperopts.." --list-tasks")
 	elseif command_args[1] == "showgroup" then
 		command_consume=1
-		numgroups = table.getn(command_args) - 1
+		numgroups = #command_args - 1
 		if numgroups < 1 then
 			apterror(_("No groupname given."))
 			return
@@ -54,7 +54,7 @@ elseif script_slot == "Scripts::AptGet::Command" then
 		return
 	end
 	
-	numgroups = table.getn(command_args) - 1
+	numgroups = #command_args - 1
 	if numgroups < 1 then
 		apterror(_("No groupname given."))
 		return

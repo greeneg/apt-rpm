@@ -49,7 +49,7 @@ for i, pkg in pairs(pkglist()) do
 	end
 	-- But instead of trying every possible number suffix,
 	-- extract the numbers from the real package name.
-	while string.gfind(string.sub(name, -1), "[%d.]")() do
+	while string.gmatch(string.sub(name, -1), "[%d.]")() do
 		name = string.sub(name, 1, -2)
 		if (lower == name or liblower == name) then
 			translated = realname

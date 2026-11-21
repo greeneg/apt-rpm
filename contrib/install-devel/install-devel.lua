@@ -14,7 +14,7 @@ for i, pkg in pairs(pkglist()) do
 	if pkgvercur(pkg) then
 		installdevel(pkgname(pkg))
 		name = pkgname(pkg)
-		while string.gfind(string.sub(name, -1), "%d")() do
+		while string.gmatch(string.sub(name, -1), "%d")() do
 			name = string.sub(name, 1, -2)
 		end
 		if name ~= pkgname(pkg) then
