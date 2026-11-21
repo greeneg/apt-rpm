@@ -20,8 +20,14 @@ static int luaL_openlib_compat(lua_State *L, const char *libname,
    }
    luaL_setfuncs(L, l, nup);
    if (libname != NULL) {
+      /* mirror 5.1's luaL_openlib: register in both _G and
+       * package.loaded so require(libname) finds this table. */
       lua_pushvalue(L, -1);
       lua_setglobal(L, libname);
+      luaL_getsubtable(L, LUA_REGISTRYINDEX, "_LOADED");
+      lua_pushvalue(L, -2);
+      lua_setfield(L, -2, libname);
+      lua_pop(L, 1);
    }
    return 1;
 }
