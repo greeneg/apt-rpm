@@ -108,6 +108,23 @@ if test "$enable_scripts" != "no"; then
   AC_MSG_RESULT(no)
   AC_DEFINE(APT_WITH_LUA, 1, 
 	    [Define if you want to enable the extension system]) 
+
+  dnl Lua's pkg-config module name varies by distro/version
+  dnl (e.g. lua, lua5.1, lua5.3, lua-5.4), and its headers are
+  dnl commonly installed under a version-specific subdirectory
+  dnl (e.g. /usr/include/lua5.4), so pkg-config is needed to
+  dnl locate them instead of assuming a bare -I/usr/include.
+  found_lua=no
+  for luapkg in lua5.4 lua5.3 lua5.2 lua5.1 lua-5.4 lua-5.3 lua-5.2 lua-5.1 lua; do
+    if $PKG_CONFIG --exists "$luapkg" 2>/dev/null; then
+      PKG_CHECK_MODULES([LUA], [$luapkg])
+      found_lua=yes
+      break
+    fi
+  done
+  if test "$found_lua" = "no"; then
+    AC_MSG_ERROR([Could not find lua development files (lua.h) via pkg-config; please install the lua development package])
+  fi
 else
   AC_MSG_RESULT(yes)
 fi

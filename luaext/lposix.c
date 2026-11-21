@@ -28,6 +28,7 @@
 
 #include "lua.h"
 #include "lauxlib.h"
+#include "luacompat.h"
 
 #ifndef MYBUFSIZ
 #define MYBUFSIZ 512

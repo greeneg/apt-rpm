@@ -9,6 +9,7 @@
 
 #include "lua.h"
 #include "lauxlib.h"
+#include "luacompat.h"
 
 /* Sanity check */
 #if !defined(WITH_POSIX) && !defined(WITH_PCRE)
