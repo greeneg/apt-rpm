@@ -16,7 +16,7 @@ function util.grep(expr, filename)
 		end
 		pos = pos + 1
 	end
-	if table.getn(lines) == 0 then
+	if #lines == 0 then
 		return nil
 	end
 	return lines

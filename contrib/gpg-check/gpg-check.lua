@@ -2,7 +2,7 @@ if confget("RPM::GPG-Check/b", "true") == "false" then
     return
 end
 
-if table.getn(files_install) < 1 then
+if #files_install < 1 then
     return
 end
 
@@ -12,9 +12,10 @@ interactive = confget("RPM::Interactive/b", "true")
 quiet = tonumber(confget("quiet", 0))
 
 function printhash(amount, total)
-    percent = amount/total*100
+    -- 5.3+ string.sub/%d require integer args, not floats
+    percent = math.floor(amount/total*100)
     if interactive == "true" then
-	nrhash = hashestotal - hashestotal / total * amount
+	nrhash = math.floor(hashestotal - hashestotal / total * amount)
 	line = string.format("%-31s[%3d%%]", string.sub(hash, nrhash), percent)
 	io.stdout.write(io.stdout, line)
 	io.stdout.flush(io.stdout)
@@ -53,7 +54,7 @@ for i, file in ipairs(files_install) do
 	end
     end
     if quiet == 0 then
-	printhash(i, table.getn(files_install))
+	printhash(i, #files_install)
     end
     if skipthis == false then
 	inp = io.popen("LANG=C /bin/rpm --checksig  "..file.." 2>&1")
@@ -83,7 +84,7 @@ if interactive == "true" then
 end
 
 if not good then
-    table.foreach(errors, showerrors)
+    for i, msg in ipairs(errors) do showerrors(i, msg) end
     apterror(_("Error(s) while checking package signatures:\n"..unsigned.." unsigned package(s)\n"..unknown.." package(s) with unknown signatures\n"..illegal.." package(s) with illegal/corrupted signatures"))
 end
 

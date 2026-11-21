@@ -18,7 +18,7 @@ for i, pkg in pairs(pkglist()) do
     ver = pkgvercur(pkg)
     verlist = pkgverlist(pkg)
     if ver and not verisonline(ver)
-       and table.getn(verlist) == 1 then
+       and #verlist == 1 then
         print(pkgname(pkg) .. "-" .. verstr(ver))
     end
 end

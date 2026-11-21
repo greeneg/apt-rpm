@@ -28,6 +28,7 @@
 
 #include "lua.h"
 #include "lauxlib.h"
+#include "luacompat.h"
 
 #ifndef MYBUFSIZ
 #define MYBUFSIZ 512
@@ -768,25 +769,93 @@ static int Psysconf(lua_State *L)		/** sysconf([selector]) */
 	return doselection(L, 1, Ssysconf, Fsysconf, NULL);
 }
 
+#if LUA_VERSION_NUM >= 502
+/* Lua 5.2+'s "FILE*" __gc/__close expect a luaL_Stream with a
+ * valid closef; without it they read past a bare FILE* userdata. */
+static int Pmkstemp_close(lua_State *L)
+{
+	luaL_Stream *p = (luaL_Stream *)luaL_checkudata(L, 1, "FILE*");
+	int ok = (fclose(p->f) == 0);
+	p->f = NULL;
+	return luaL_fileresult(L, ok, NULL);
+}
+#else
+/* Lua 5.1's generic file __gc/close looks up "__close" in the
+ * userdata's fenv and calls it; without it that lookup yields nil
+ * and aux_close calls through a NULL function pointer. */
+static int Pmkstemp_close51(lua_State *L)
+{
+	FILE **p = (FILE **)luaL_checkudata(L, 1, "FILE*");
+	if (*p != NULL) {
+		int ok = (fclose(*p) == 0);
+		int err = errno;
+		*p = NULL;
+		if (!ok) {
+			lua_pushnil(L);
+			lua_pushstring(L, strerror(err));
+			lua_pushinteger(L, err);
+			return 3;
+		}
+	}
+	lua_pushboolean(L, 1);
+	return 1;
+}
+#endif
+
 static int Pmkstemp(lua_State *L)
 {
 	const char *path;
 	char *dynpath;
 	int fd;
-	FILE **f;
+	FILE *f;
+	int nret;
 
 	path = luaL_checkstring(L, 1);
 	if (path == NULL)
 		return 0;
 	dynpath = strdup(path);
 	fd = mkstemp(dynpath);
-	f = (FILE**)lua_newuserdata(L, sizeof(FILE*));
+	if (fd == -1) {
+		nret = pusherror(L, dynpath);
+		free(dynpath);
+		return nret;
+	}
+
+	f = fdopen(fd, "a+");
 	if (f == NULL) {
+		nret = pusherror(L, dynpath);
 		close(fd);
 		free(dynpath);
-		return 0;
+		return nret;
 	}
-	*f = fdopen(fd, "a+");
+
+#if LUA_VERSION_NUM >= 502
+	{
+		luaL_Stream *s = (luaL_Stream *)lua_newuserdata(L, sizeof(luaL_Stream));
+		if (s == NULL) {
+			fclose(f);
+			free(dynpath);
+			return 0;
+		}
+		s->f = f;
+		s->closef = Pmkstemp_close;
+	}
+#else
+	{
+		FILE **fp = (FILE**)lua_newuserdata(L, sizeof(FILE*));
+		if (fp == NULL) {
+			fclose(f);
+			free(dynpath);
+			return 0;
+		}
+		*fp = f;
+		lua_newtable(L);
+		lua_pushcfunction(L, Pmkstemp_close51);
+		lua_setfield(L, -2, "__close");
+		lua_setfenv(L, -2);
+	}
+#endif
+
 	lua_pushstring(L, dynpath);
 	free(dynpath);
 	luaL_getmetatable(L, "FILE*");

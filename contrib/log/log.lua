@@ -60,11 +60,16 @@ if script_slot == "Scripts::PM::Pre" then
     local function write(index, str)
         file:write(str)
     end
-    table.foreach(removing, write)
-    table.foreach(installing, write)
-    table.foreach(reinstalling, write)
-    table.foreach(downgrading, write)
-    table.foreach(upgrading, write)
+    local function writeall(list)
+        for i, str in ipairs(list) do
+            write(i, str)
+        end
+    end
+    writeall(removing)
+    writeall(installing)
+    writeall(reinstalling)
+    writeall(downgrading)
+    writeall(upgrading)
     file:close()
 elseif script_slot == "Scripts::PM::Post" then
     if transaction_success then

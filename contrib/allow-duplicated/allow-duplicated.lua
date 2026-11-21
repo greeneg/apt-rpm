@@ -25,7 +25,7 @@ if script_slot == "Scripts::AptGet::Install::SelectPackage" then
         -- Check if every package has the same real name, and
         -- leave only the one with the greatest version, if
         -- that's the case.
-        for i = 2, table.getn(packages) do
+        for i = 2, #packages do
             local nextpkg = packages[i]
             local nextpkgname = realname(pkgname(nextpkg))
             if nextpkgname ~= goodpkgname then
@@ -69,7 +69,7 @@ if script_slot == "Scripts::AptGet::DistUpgrade" or
         updatelist[i] = rex.new(expr)
     end
 
-    if table.getn(updatelist) ~= 0 then
+    if #updatelist ~= 0 then
 
         -- Gather information about Allow-Duplicated packges.
         local canddups = {}

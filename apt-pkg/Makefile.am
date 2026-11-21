@@ -13,8 +13,9 @@ AM_CPPFLAGS += -DLOCALEDIR=\"$(localedir)\" -DAPT_DOMAIN=\"$(PACKAGE)\"
 AM_CPPFLAGS += -I$(top_srcdir)/luaext
 
 if WITH_LUAEXT
+AM_CPPFLAGS += $(LUA_CFLAGS)
 libapt_pkg_la_LIBADD += $(top_builddir)/luaext/libluaext.la
-libapt_pkg_la_LIBADD += -llua
+libapt_pkg_la_LIBADD += $(LUA_LIBS)
 endif
 
 libapt_pkg_la_SOURCES = \
