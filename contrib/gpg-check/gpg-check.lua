@@ -12,9 +12,10 @@ interactive = confget("RPM::Interactive/b", "true")
 quiet = tonumber(confget("quiet", 0))
 
 function printhash(amount, total)
-    percent = amount/total*100
+    -- 5.3+ string.sub/%d require integer args, not floats
+    percent = math.floor(amount/total*100)
     if interactive == "true" then
-	nrhash = hashestotal - hashestotal / total * amount
+	nrhash = math.floor(hashestotal - hashestotal / total * amount)
 	line = string.format("%-31s[%3d%%]", string.sub(hash, nrhash), percent)
 	io.stdout.write(io.stdout, line)
 	io.stdout.flush(io.stdout)
