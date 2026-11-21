@@ -4,6 +4,9 @@ Makefile
 Makefile.in
 
 aclocal.m4
+
+apt-pkg/*.pc
+
 autom4te.cache
 
 buildlib/compile
@@ -24,7 +27,11 @@ config.status
 configure
 configure~
 
+include
+
 libtool
+
+luaext/*.la
 
 m4
 

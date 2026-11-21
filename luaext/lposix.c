@@ -769,25 +769,53 @@ static int Psysconf(lua_State *L)		/** sysconf([selector]) */
 	return doselection(L, 1, Ssysconf, Fsysconf, NULL);
 }
 
+#if LUA_VERSION_NUM >= 502
+/* Lua 5.2+'s "FILE*" __gc/__close expect a luaL_Stream with a
+ * valid closef; without it they read past a bare FILE* userdata. */
+static int Pmkstemp_close(lua_State *L)
+{
+	luaL_Stream *p = (luaL_Stream *)luaL_checkudata(L, 1, "FILE*");
+	int ok = (fclose(p->f) == 0);
+	p->f = NULL;
+	return luaL_fileresult(L, ok, NULL);
+}
+#endif
+
 static int Pmkstemp(lua_State *L)
 {
 	const char *path;
 	char *dynpath;
 	int fd;
-	FILE **f;
 
 	path = luaL_checkstring(L, 1);
 	if (path == NULL)
 		return 0;
 	dynpath = strdup(path);
 	fd = mkstemp(dynpath);
-	f = (FILE**)lua_newuserdata(L, sizeof(FILE*));
-	if (f == NULL) {
-		close(fd);
-		free(dynpath);
-		return 0;
+
+#if LUA_VERSION_NUM >= 502
+	{
+		luaL_Stream *s = (luaL_Stream *)lua_newuserdata(L, sizeof(luaL_Stream));
+		if (s == NULL) {
+			close(fd);
+			free(dynpath);
+			return 0;
+		}
+		s->f = fdopen(fd, "a+");
+		s->closef = Pmkstemp_close;
 	}
-	*f = fdopen(fd, "a+");
+#else
+	{
+		FILE **f = (FILE**)lua_newuserdata(L, sizeof(FILE*));
+		if (f == NULL) {
+			close(fd);
+			free(dynpath);
+			return 0;
+		}
+		*f = fdopen(fd, "a+");
+	}
+#endif
+
 	lua_pushstring(L, dynpath);
 	free(dynpath);
 	luaL_getmetatable(L, "FILE*");
