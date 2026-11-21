@@ -787,8 +787,15 @@ static int Pmkstemp_close51(lua_State *L)
 {
 	FILE **p = (FILE **)luaL_checkudata(L, 1, "FILE*");
 	if (*p != NULL) {
-		fclose(*p);
+		int ok = (fclose(*p) == 0);
+		int err = errno;
 		*p = NULL;
+		if (!ok) {
+			lua_pushnil(L);
+			lua_pushstring(L, strerror(err));
+			lua_pushinteger(L, err);
+			return 3;
+		}
 	}
 	lua_pushboolean(L, 1);
 	return 1;
