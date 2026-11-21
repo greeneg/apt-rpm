@@ -786,33 +786,48 @@ static int Pmkstemp(lua_State *L)
 	const char *path;
 	char *dynpath;
 	int fd;
+	FILE *f;
+	int nret;
 
 	path = luaL_checkstring(L, 1);
 	if (path == NULL)
 		return 0;
 	dynpath = strdup(path);
 	fd = mkstemp(dynpath);
+	if (fd == -1) {
+		nret = pusherror(L, dynpath);
+		free(dynpath);
+		return nret;
+	}
+
+	f = fdopen(fd, "a+");
+	if (f == NULL) {
+		nret = pusherror(L, dynpath);
+		close(fd);
+		free(dynpath);
+		return nret;
+	}
 
 #if LUA_VERSION_NUM >= 502
 	{
 		luaL_Stream *s = (luaL_Stream *)lua_newuserdata(L, sizeof(luaL_Stream));
 		if (s == NULL) {
-			close(fd);
+			fclose(f);
 			free(dynpath);
 			return 0;
 		}
-		s->f = fdopen(fd, "a+");
+		s->f = f;
 		s->closef = Pmkstemp_close;
 	}
 #else
 	{
-		FILE **f = (FILE**)lua_newuserdata(L, sizeof(FILE*));
-		if (f == NULL) {
-			close(fd);
+		FILE **fp = (FILE**)lua_newuserdata(L, sizeof(FILE*));
+		if (fp == NULL) {
+			fclose(f);
 			free(dynpath);
 			return 0;
 		}
-		*f = fdopen(fd, "a+");
+		*fp = f;
 	}
 #endif
 
