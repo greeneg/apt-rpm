@@ -779,6 +779,20 @@ static int Pmkstemp_close(lua_State *L)
 	p->f = NULL;
 	return luaL_fileresult(L, ok, NULL);
 }
+#else
+/* Lua 5.1's generic file __gc/close looks up "__close" in the
+ * userdata's fenv and calls it; without it that lookup yields nil
+ * and aux_close calls through a NULL function pointer. */
+static int Pmkstemp_close51(lua_State *L)
+{
+	FILE **p = (FILE **)luaL_checkudata(L, 1, "FILE*");
+	if (*p != NULL) {
+		fclose(*p);
+		*p = NULL;
+	}
+	lua_pushboolean(L, 1);
+	return 1;
+}
 #endif
 
 static int Pmkstemp(lua_State *L)
@@ -828,6 +842,10 @@ static int Pmkstemp(lua_State *L)
 			return 0;
 		}
 		*fp = f;
+		lua_newtable(L);
+		lua_pushcfunction(L, Pmkstemp_close51);
+		lua_setfield(L, -2, "__close");
+		lua_setfenv(L, -2);
 	}
 #endif
 
