@@ -68,7 +68,7 @@ repositories.  \fBrpm-dir\fR and \fBrpm-src-dir\fR only accept file:// uri's!
 
 .SH "URI SPECIFICATION"
 The currently recognized URI types are \fBcdrom\fR, \fBfile\fR, \fBhttp\fR,
-and \fBftp\fR.
+\fBhttps\fR, and \fBftp\fR.
 
 .TP
 \fBfile\fR
@@ -90,6 +90,16 @@ The \fBhttp\fR scheme specifies an HTTP server for the archive.  If the
 used.  Users of authenticated HTTP/1.1 proxies may use a string of the
 format "http://user:pass@server:port/".  Note that this is an insecure
 method of authentication.
+
+.TP
+\fBhttps\fR
+The \fBhttps\fR scheme specifies an HTTPS server for the archive, using
+TLS via OpenSSL.  Peer certificate verification is enabled by default (see
+\fIAcquire::https::Verify-Peer\fR in \fIapt.conf\fR(5)).  Proxying is
+configured separately from plain \fBhttp\fR via the "https_proxy"
+environment variable or \fIAcquire::https::Proxy\fR; when a proxy is in
+use, the request is tunnelled to the origin server with the HTTP
+\fBCONNECT\fR method so the proxy never sees the decrypted traffic.
 
 .TP
 \fBftp\fR

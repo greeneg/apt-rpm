@@ -53,6 +53,7 @@ methods/ftp
 methods/gpg
 methods/gzip
 methods/http
+methods/https
 methods/rsh
 methods/ssh
 

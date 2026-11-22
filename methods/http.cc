@@ -40,6 +40,8 @@
    ##################################################################### */
 /*}}}*/
 // Include Files							/*{{{*/
+#include <config.h>
+
 #include <apt-pkg/fileutl.h>
 #include <apt-pkg/acquire-method.h>
 #include <apt-pkg/error.h>
@@ -59,6 +61,11 @@
 
 // Internet stuff
 #include <netdb.h>
+
+#ifdef WITH_SSL
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#endif
 
 // CNC:2003-02-20 - Moved header to fix compilation error when
 // 		    --disable-nls is used.
@@ -106,7 +113,11 @@ void CircleBuf::Reset() {
 // ---------------------------------------------------------------------
 /* This fills up the buffer with as much data as is in the FD, assuming it
    is non-blocking.. */
+#ifdef WITH_SSL
+bool CircleBuf::Read(int Fd, SSL *Ssl) {
+#else
 bool CircleBuf::Read(int Fd) {
+#endif
     while (1) {
         // Woops, buffer is full
         if (InP - OutP == Size) {
@@ -115,16 +126,30 @@ bool CircleBuf::Read(int Fd) {
 
         // Write the buffer segment
         int Res;
-        Res = read(Fd, Buf + (InP % Size), LeftRead());
-
-        if (Res == 0) {
-            return false;
-        }
-        if (Res < 0) {
-            if (errno == EAGAIN) {
-                return true;
+#ifdef WITH_SSL
+        if (Ssl != NULL) {
+            Res = SSL_read(Ssl, Buf + (InP % Size), LeftRead());
+            if (Res <= 0) {
+                int Err = SSL_get_error(Ssl, Res);
+                if (Err == SSL_ERROR_WANT_READ || Err == SSL_ERROR_WANT_WRITE) {
+                    return true;
+                }
+                return false;
             }
-            return false;
+        } else
+#endif
+        {
+            Res = read(Fd, Buf + (InP % Size), LeftRead());
+
+            if (Res == 0) {
+                return false;
+            }
+            if (Res < 0) {
+                if (errno == EAGAIN) {
+                    return true;
+                }
+                return false;
+            }
         }
 
         if (InP == 0) {
@@ -177,7 +202,11 @@ void CircleBuf::FillOut() {
 // CircleBuf::Write - Write from the buffer into a FD			/*{{{*/
 // ---------------------------------------------------------------------
 /* This empties the buffer into the FD. */
+#ifdef WITH_SSL
+bool CircleBuf::Write(int Fd, SSL *Ssl) {
+#else
 bool CircleBuf::Write(int Fd) {
+#endif
     while (1) {
         FillOut();
 
@@ -192,17 +221,31 @@ bool CircleBuf::Write(int Fd) {
 
         // Write the buffer segment
         int Res;
-        Res = write(Fd, Buf + (OutP % Size), LeftWrite());
-
-        if (Res == 0) {
-            return false;
-        }
-        if (Res < 0) {
-            if (errno == EAGAIN) {
-                return true;
+#ifdef WITH_SSL
+        if (Ssl != NULL) {
+            Res = SSL_write(Ssl, Buf + (OutP % Size), LeftWrite());
+            if (Res <= 0) {
+                int Err = SSL_get_error(Ssl, Res);
+                if (Err == SSL_ERROR_WANT_READ || Err == SSL_ERROR_WANT_WRITE) {
+                    return true;
+                }
+                return false;
             }
+        } else
+#endif
+        {
+            Res = write(Fd, Buf + (OutP % Size), LeftWrite());
 
-            return false;
+            if (Res == 0) {
+                return false;
+            }
+            if (Res < 0) {
+                if (errno == EAGAIN) {
+                    return true;
+                }
+
+                return false;
+            }
         }
 
         if (Hash != 0) {
@@ -270,6 +313,34 @@ void CircleBuf::Stats() {
 }
 /*}}}*/
 
+#ifdef WITH_SSL
+// GetSslCtx - Lazily create and configure the shared TLS client context /*{{{*/
+// ---------------------------------------------------------------------
+/* */
+static SSL_CTX *GetSslCtx() {
+    static SSL_CTX *Ctx = NULL;
+    if (Ctx != NULL) {
+        return Ctx;
+    }
+
+    Ctx = SSL_CTX_new(TLS_client_method());
+    if (Ctx == NULL) {
+        return NULL;
+    }
+
+    SSL_CTX_set_min_proto_version(Ctx, TLS1_2_VERSION);
+    SSL_CTX_set_default_verify_paths(Ctx);
+    if (_config->FindB("Acquire::https::Verify-Peer", true) == true) {
+        SSL_CTX_set_verify(Ctx, SSL_VERIFY_PEER, NULL);
+    } else {
+        SSL_CTX_set_verify(Ctx, SSL_VERIFY_NONE, NULL);
+    }
+
+    return Ctx;
+}
+/*}}}*/
+#endif
+
 // ServerState::ServerState - Constructor				/*{{{*/
 // ---------------------------------------------------------------------
 /* */
@@ -279,6 +350,128 @@ ServerState::ServerState(URI Srv, HttpMethod *Owner) : Owner(Owner),
     Reset();
 }
 /*}}}*/
+#ifdef WITH_SSL
+// ServerState::ConnectSSL - Perform the TLS handshake			/*{{{*/
+// ---------------------------------------------------------------------
+/* Drives the non-blocking TLS handshake to completion using WaitFd to
+   block on whichever direction OpenSSL is waiting for. */
+bool ServerState::ConnectSSL() {
+    SSL_CTX *Ctx = GetSslCtx();
+    if (Ctx == NULL) {
+        return _error->Error(_("Unable to initialize the TLS context"));
+    }
+
+    Ssl = SSL_new(Ctx);
+    if (Ssl == NULL) {
+        return _error->Error(_("Unable to initialize the TLS session"));
+    }
+
+    SSL_set_fd(Ssl, ServerFd);
+    SSL_set_tlsext_host_name(Ssl, ServerName.Host.c_str());
+
+    while (1) {
+        int Res = SSL_connect(Ssl);
+        if (Res == 1) {
+            return true;
+        }
+
+        int Err = SSL_get_error(Ssl, Res);
+        if (Err == SSL_ERROR_WANT_READ) {
+            if (WaitFd(ServerFd, false, TimeOut) == false) {
+                break;
+            }
+            continue;
+        }
+        if (Err == SSL_ERROR_WANT_WRITE) {
+            if (WaitFd(ServerFd, true, TimeOut) == false) {
+                break;
+            }
+            continue;
+        }
+
+        break;
+    }
+
+    unsigned long SslErr = ERR_get_error();
+    char ErrBuf[256];
+    ERR_error_string_n(SslErr, ErrBuf, sizeof(ErrBuf));
+    SSL_free(Ssl);
+    Ssl = NULL;
+    return _error->Error(_("Unable to establish a TLS connection with %s: %s"), ServerName.Host.c_str(), ErrBuf);
+}
+/*}}}*/
+// ServerState::ConnectProxyTunnel - Establish an HTTP CONNECT tunnel	/*{{{*/
+// ---------------------------------------------------------------------
+/* Issues a CONNECT request to the already-connected proxy and waits for
+   a 200 response before the raw socket is handed off to ConnectSSL(). */
+bool ServerState::ConnectProxyTunnel() {
+    char Buf[1000];
+    string ProperHost = ServerName.Host;
+    sprintf(Buf, ":%u", ServerName.Port != 0 ? ServerName.Port : 443);
+    ProperHost += Buf;
+
+    string Req = string("CONNECT ") + ProperHost + " HTTP/1.1\r\nHost: " + ProperHost + "\r\n";
+    if (Proxy.User.empty() == false || Proxy.Password.empty() == false) {
+        Req += string("Proxy-Authorization: Basic ") +
+               Base64Encode(Proxy.User + ":" + Proxy.Password) + "\r\n";
+    }
+    Req += "\r\n";
+
+    // Write the CONNECT request
+    string::size_type Sent = 0;
+    while (Sent < Req.length()) {
+        int Res = write(ServerFd, Req.c_str() + Sent, Req.length() - Sent);
+        if (Res < 0) {
+            if (errno == EAGAIN) {
+                if (WaitFd(ServerFd, true, TimeOut) == false) {
+                    return _error->Error(_("Timed out while connecting to the proxy"));
+                }
+                continue;
+            }
+            return _error->Errno("write", _("Error writing to the proxy"));
+        }
+        Sent += Res;
+    }
+
+    // Read the response one byte at a time so we never read past the
+    // header terminator into bytes that may already be the TLS handshake.
+    string Resp;
+    while (Resp.length() < 4 || Resp.compare(Resp.length() - 4, 4, "\r\n\r\n") != 0) {
+        char C;
+        int Res = read(ServerFd, &C, 1);
+        if (Res == 0) {
+            return _error->Error(_("The proxy closed the connection unexpectedly"));
+        }
+        if (Res < 0) {
+            if (errno == EAGAIN) {
+                if (WaitFd(ServerFd, false, TimeOut) == false) {
+                    return _error->Error(_("Timed out waiting for the proxy to respond"));
+                }
+                continue;
+            }
+            return _error->Errno("read", _("Error reading from the proxy"));
+        }
+        Resp += C;
+        if (Resp.length() > 8192) {
+            return _error->Error(_("Proxy response is too large"));
+        }
+    }
+
+    unsigned int Major, Minor, Code;
+    if (sscanf(Resp.c_str(), "HTTP/%u.%u %u", &Major, &Minor, &Code) != 3) {
+        return _error->Error(_("Invalid response from the proxy"));
+    }
+
+    if (Code != 200) {
+        string::size_type Eol = Resp.find("\r\n");
+        return _error->Error(_("The proxy refused the CONNECT request: %s"),
+            Resp.substr(0, Eol).c_str());
+    }
+
+    return true;
+}
+/*}}}*/
+#endif
 // ServerState::Open - Open a connection to the server			/*{{{*/
 // ---------------------------------------------------------------------
 /* This opens a connection to the server. */
@@ -293,21 +486,45 @@ bool ServerState::Open() {
     Out.Reset();
     Persistent = true;
 
-    // Determine the proxy setting
-    if (getenv("http_proxy") == 0) {
-        string DefProxy = _config->Find("Acquire::http::Proxy");
-        string SpecificProxy = _config->Find("Acquire::http::Proxy::" + ServerName.Host);
-        if (SpecificProxy.empty() == false) {
-            if (SpecificProxy == "DIRECT") {
-                Proxy = "";
+    bool Https = (ServerName.Access == "https");
+
+    // Determine the proxy setting. HTTPS uses its own proxy variable/config
+    // so it can be routed differently from plain HTTP.
+#ifdef WITH_SSL
+    if (Https == true) {
+        if (getenv("https_proxy") == 0) {
+            string DefProxy = _config->Find("Acquire::https::Proxy");
+            string SpecificProxy = _config->Find("Acquire::https::Proxy::" + ServerName.Host);
+            if (SpecificProxy.empty() == false) {
+                if (SpecificProxy == "DIRECT") {
+                    Proxy = "";
+                } else {
+                    Proxy = SpecificProxy;
+                }
             } else {
-                Proxy = SpecificProxy;
+                Proxy = DefProxy;
             }
         } else {
-            Proxy = DefProxy;
+            Proxy = getenv("https_proxy");
         }
-    } else {
-        Proxy = getenv("http_proxy");
+    } else
+#endif
+    {
+        if (getenv("http_proxy") == 0) {
+            string DefProxy = _config->Find("Acquire::http::Proxy");
+            string SpecificProxy = _config->Find("Acquire::http::Proxy::" + ServerName.Host);
+            if (SpecificProxy.empty() == false) {
+                if (SpecificProxy == "DIRECT") {
+                    Proxy = "";
+                } else {
+                    Proxy = SpecificProxy;
+                }
+            } else {
+                Proxy = DefProxy;
+            }
+        } else {
+            Proxy = getenv("http_proxy");
+        }
     }
 
     // Parse no_proxy, a , separated list of domains
@@ -332,6 +549,33 @@ bool ServerState::Open() {
         Host = Proxy.Host;
     }
 
+#ifdef WITH_SSL
+    if (Https == true) {
+        if (Proxy.empty() == false && Proxy.Host.empty() == false) {
+            // Tunnel through the proxy with CONNECT before starting TLS
+            if (Connect(Host, Port, "http", 80, ServerFd, TimeOut, Owner) == false) {
+                return false;
+            }
+
+            if (ConnectProxyTunnel() == false) {
+                Close();
+                return false;
+            }
+        } else {
+            if (Connect(Host, Port, "https", 443, ServerFd, TimeOut, Owner) == false) {
+                return false;
+            }
+        }
+
+        if (ConnectSSL() == false) {
+            Close();
+            return false;
+        }
+
+        return true;
+    }
+#endif
+
     // Connect to the remote server
     if (Connect(Host, Port, "http", 80, ServerFd, TimeOut, Owner) == false) {
         return false;
@@ -344,6 +588,13 @@ bool ServerState::Open() {
 // ---------------------------------------------------------------------
 /* */
 bool ServerState::Close() {
+#ifdef WITH_SSL
+    if (Ssl != NULL) {
+        SSL_shutdown(Ssl);
+        SSL_free(Ssl);
+        Ssl = NULL;
+    }
+#endif
     close(ServerFd);
     ServerFd = -1;
     return true;
@@ -665,8 +916,10 @@ void HttpMethod::SendReq(FetchItem *Itm, CircleBuf &Out) {
        but not HTTP/1.1 automatic keep-alive. Doing this with a proxy server
        will glitch HTTP/1.0 proxies because they do not filter it out and
        pass it on, HTTP/1.1 says the connection should default to keep alive
-       and we expect the proxy to do this */
-    if (Proxy.empty() == true) {
+       and we expect the proxy to do this. HTTPS always uses the non-proxy
+       (origin) form, even when a proxy was used to CONNECT-tunnel it, since
+       the proxy only sees opaque TLS bytes once the tunnel is up. */
+    if (Proxy.empty() == true || Uri.Access == "https") {
         sprintf(Buf, "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: keep-alive\r\n",
             QuoteString(Uri.Path, "~").c_str(), ProperHost.c_str());
     } else {
@@ -705,7 +958,9 @@ void HttpMethod::SendReq(FetchItem *Itm, CircleBuf &Out) {
         }
     }
 
-    if (Proxy.User.empty() == false || Proxy.Password.empty() == false) {
+    // Proxy credentials belong only on the CONNECT request (ConnectProxyTunnel);
+    // they must never reach the origin server inside an HTTPS tunnel.
+    if (Uri.Access != "https" && (Proxy.User.empty() == false || Proxy.Password.empty() == false)) {
         Req += string("Proxy-Authorization: Basic ") +
                Base64Encode(Proxy.User + ":" + Proxy.Password) + "\r\n";
     }
@@ -792,14 +1047,22 @@ bool HttpMethod::Go(bool ToFile, ServerState *Srv) {
     // Handle server IO
     if (Srv->ServerFd != -1 && FD_ISSET(Srv->ServerFd, &rfds)) {
         errno = 0;
+#ifdef WITH_SSL
+        if (Srv->In.Read(Srv->ServerFd, Srv->Ssl) == false) {
+#else
         if (Srv->In.Read(Srv->ServerFd) == false) {
+#endif
             return ServerDie(Srv);
         }
     }
 
     if (Srv->ServerFd != -1 && FD_ISSET(Srv->ServerFd, &wfds)) {
         errno = 0;
+#ifdef WITH_SSL
+        if (Srv->Out.Write(Srv->ServerFd, Srv->Ssl) == false) {
+#else
         if (Srv->Out.Write(Srv->ServerFd) == false) {
+#endif
             return ServerDie(Srv);
         }
     }
