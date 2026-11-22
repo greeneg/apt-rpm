@@ -1228,6 +1228,12 @@ static int AptLua_pkgchecksig(lua_State *L)
 
    rpmts TS = rpmtsCreate();
    rpmtsSetRootDir(TS, _config->Find("RPM::RootDir", "/").c_str());
+   // apt.checksig must always require a verified signature, not just
+   // a digest. rpmtsCreate() caches the ts's verify level from the
+   // configured %_pkgverify_level ("digest"/"none" would silently let
+   // an unsigned package pass), so override it directly here rather
+   // than relying on that global, overridable setting.
+   rpmtsSetVfyLevel(TS, RPMSIG_SIGNATURE_TYPE | RPMSIG_DIGEST_TYPE);
 
    FD_t fd = Fopen(Path, "r.ufdio");
    if (fd == NULL) {
