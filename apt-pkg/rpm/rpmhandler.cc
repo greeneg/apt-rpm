@@ -49,7 +49,6 @@
 #include <rpm/rpmts.h>
 #include <rpm/rpmdb.h>
 #include <rpm/rpmds.h>
-#include <rpm/rpmsq.h>
 
 using namespace std;
 
@@ -599,22 +598,12 @@ RPMDBHandler::~RPMDBHandler()
    if (RpmIter != NULL)
       rpmdbFreeIterator(RpmIter);
 
-   /* 
-    * If termination signal, do nothing as rpmdb has already freed
-    * our ts set behind our back and rpmtsFree() will crash and burn with a 
-    * doublefree within rpmlib.
-    * There's a WTF involved as rpmCheckSignals() actually calls exit()
-    * so we shouldn't even get here really?!
+   /*
+    * rpmsqIsCaught() and the signal-queue subsystem it belonged to
+    * were removed from librpm; rpmtsFree() is now always safe to call.
     */
-   if (rpmsqIsCaught(SIGINT) || 
-       rpmsqIsCaught(SIGQUIT) ||
-       rpmsqIsCaught(SIGHUP) ||
-       rpmsqIsCaught(SIGTERM) ||
-       rpmsqIsCaught(SIGPIPE)) {
-      /* do nothing */
-   } else if (Handler != NULL) {
+   if (Handler != NULL)
       rpmtsFree(Handler);
-   }
 
    // Restore just after opening the database, and just after closing.
    if (WriteLock) {
@@ -627,15 +616,32 @@ RPMDBHandler::~RPMDBHandler()
 
 string RPMDBHandler::DataPath(bool DirectoryOnly)
 {
-   string File = "Packages";
    char *tmp = (char *) rpmExpand("%{_dbpath}", NULL);
    string DBPath(_config->Find("RPM::RootDir")+tmp);
    free(tmp);
 
    if (DirectoryOnly == true)
        return DBPath;
-   else
-       return DBPath+"/"+File;
+
+   // The on-disk file backing the rpmdb depends on the configured
+   // db backend (rpm >= 4.16 defaults to ndb/sqlite instead of the
+   // legacy bdb "Packages" file); probe for whichever exists so our
+   // IMS mtime/size bookkeeping stats a real file.
+   static const char *const Candidates[] = {
+      "Packages.db",   // ndb
+      "rpmdb.sqlite",  // sqlite
+      "Packages",      // bdb (legacy default)
+      NULL
+   };
+   for (const char *const *C = Candidates; *C != NULL; C++) {
+      string Path = DBPath + "/" + *C;
+      struct stat St;
+      if (stat(Path.c_str(), &St) == 0)
+	 return Path;
+   }
+   // Nothing recognized exists yet; fall back to the directory
+   // itself so stat() still succeeds.
+   return DBPath;
 }
 
 bool RPMDBHandler::Skip()

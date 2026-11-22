@@ -5,7 +5,11 @@ Makefile.in
 
 aclocal.m4
 
+apt-pkg/*.la
 apt-pkg/*.pc
+apt-pkg/contrib/.dirstamp
+apt-pkg/rpm/.deps
+apt-pkg/rpm/.dirstamp
 
 autom4te.cache
 
@@ -22,6 +26,12 @@ buildlib/missing
 buildlib/mkinstalldirs
 buildlib/mkinstalldirs~
 
+cmdline/apt-cache
+cmdline/apt-cdrom
+cmdline/apt-config
+cmdline/apt-get
+cmdline/apt-shell
+
 config.log
 config.status
 configure
@@ -35,9 +45,36 @@ luaext/*.la
 
 m4
 
+methods/bzip2
+methods/cdrom
+methods/copy
+methods/file
+methods/ftp
+methods/gpg
+methods/gzip
+methods/http
+methods/rsh
+methods/ssh
+
+po/*.pot
+po/*.gmo
+po/*.po~
 po/Makefile.in.in
 po/Makevars.template
+po/remove-potcdate.sed
+po/stamp-po
 po/POTFILES
+
+test/conftest
+test/hash
+test/mthdcat
+test/scratch-test
+test/uritest
+test/versiontest
+
+tools/countpkglist
+tools/genpkglist
+tools/gensrclist
 
 */Makefile.in
 */.deps

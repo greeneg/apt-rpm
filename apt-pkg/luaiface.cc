@@ -40,6 +40,14 @@ extern "C" {
 #include <sys/types.h>
 #include <assert.h>
 
+#include <rpm/rpmlib.h>
+#include <rpm/rpmts.h>
+#include <rpm/rpmio.h>
+#include <rpm/rpmdb.h>
+#include <rpm/rpmfi.h>
+#include <rpm/rpmfiles.h>
+#include <sys/stat.h>
+
 using namespace std;
 
 #ifndef lua_pushglobaltable
@@ -1206,6 +1214,118 @@ static int AptLua_verchangeloglist(lua_State *L)
    return 1;
 }
 
+// AptLua_pkgchecksig - Verify a package file's digest/signature	/*{{{*/
+// ---------------------------------------------------------------------
+/* Native replacement for shelling out to "rpm --checksig": reads the
+   package header through librpm's own verification path and reports
+   the result as one of "ok", "nottrusted", "nokey" or "fail". */
+static int AptLua_pkgchecksig(lua_State *L)
+{
+   const char *Path = luaL_checkstring(L, 1);
+   if (Path == NULL)
+      return 0;
+
+   rpmts TS = rpmtsCreate();
+   rpmtsSetRootDir(TS, _config->Find("RPM::RootDir", "/").c_str());
+
+   FD_t fd = Fopen(Path, "r.ufdio");
+   if (fd == NULL) {
+      rpmtsFree(TS);
+      lua_pushnil(L);
+      lua_pushstring(L, _("could not open package file"));
+      return 2;
+   }
+
+   Header hdr = NULL;
+   rpmRC rc = rpmReadPackageFile(TS, fd, Path, &hdr);
+   Fclose(fd);
+   if (hdr != NULL)
+      headerFree(hdr);
+   rpmtsFree(TS);
+
+   const char *Status;
+   switch (rc) {
+      case RPMRC_OK:
+	 Status = "ok";
+	 break;
+      case RPMRC_NOTTRUSTED:
+	 Status = "nottrusted";
+	 break;
+      case RPMRC_NOKEY:
+	 Status = "nokey";
+	 break;
+      default:
+	 Status = "fail";
+	 break;
+   }
+   lua_pushstring(L, Status);
+   return 1;
+}
+									/*}}}*/
+// AptLua_pkgconfigchanged - Has an installed %config file been edited?/*{{{*/
+// ---------------------------------------------------------------------
+/* Native replacement for shelling out to
+   "rpm -V --nodeps --nodigest --noscripts --nosignature <pkg>" and
+   grepping for the 'c' (config file) marker: checks the on-disk size
+   and mode of every %config file recorded for the installed package
+   against what's in the rpmdb. This intentionally mirrors --nodigest
+   (no content hash check) and does not reproduce every verify bit
+   rpm -V checks (owner/group/symlink target/device nodes are not
+   compared) - it is a size+mode approximation sufficient to detect
+   locally edited config files. */
+static int AptLua_pkgconfigchanged(lua_State *L)
+{
+   const char *Name = luaL_checkstring(L, 1);
+   if (Name == NULL)
+      return 0;
+
+   string RootDir = _config->Find("RPM::RootDir", "/");
+
+   rpmts TS = rpmtsCreate();
+   rpmtsSetRootDir(TS, RootDir.c_str());
+
+   rpmdbMatchIterator MI = rpmtsInitIterator(TS, RPMDBI_LABEL, Name, 0);
+   Header hdr;
+   bool Changed = false;
+   while (!Changed && (hdr = rpmdbNextIterator(MI)) != NULL) {
+      rpmfi fi = rpmfiNew(TS, hdr, RPMTAG_BASENAMES, RPMFI_NOHEADER);
+      if (fi == NULL)
+	 continue;
+      while (rpmfiNext(fi) >= 0) {
+	 rpmfileAttrs Flags = rpmfiFFlags(fi);
+	 if ((Flags & RPMFILE_CONFIG) == 0 || (Flags & RPMFILE_GHOST) != 0)
+	    continue;
+
+	 const char *FN = rpmfiFN(fi);
+	 if (FN == NULL)
+	    continue;
+	 string Path = RootDir;
+	 if (!Path.empty() && Path[Path.size() - 1] != '/' && FN[0] != '/')
+	    Path += "/";
+	 Path += FN;
+
+	 struct stat St;
+	 if (lstat(Path.c_str(), &St) != 0) {
+	    Changed = true;	// file is missing, treat as changed
+	    break;
+	 }
+	 if (S_ISREG(St.st_mode)) {
+	    if ((rpm_loff_t)St.st_size != rpmfiFSize(fi) ||
+		(St.st_mode & 07777) != (rpmfiFMode(fi) & 07777)) {
+	       Changed = true;
+	       break;
+	    }
+	 }
+      }
+      rpmfiFree(fi);
+   }
+   rpmdbFreeIterator(MI);
+   rpmtsFree(TS);
+
+   lua_pushboolean(L, Changed ? 1 : 0);
+   return 1;
+}
+									/*}}}*/
 static int AptLua_verstrcmp(lua_State *L)
 {
    const char *Ver1, *Ver2;
@@ -1517,6 +1637,8 @@ static const luaL_Reg aptlib[] = {
    {"verfilelist",   	AptLua_verfilelist},
    {"verchangeloglist", AptLua_verchangeloglist},
    {"verstrcmp",	AptLua_verstrcmp},
+   {"checksig",		AptLua_pkgchecksig},
+   {"configchanged",	AptLua_pkgconfigchanged},
    {"markkeep",		AptLua_markkeep},
    {"markinstall",	AptLua_markinstall},
    {"markreinstall",	AptLua_markreinstall},

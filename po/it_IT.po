@@ -5,8 +5,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: apt\n"
-"Report-Msgid-Bugs-To: apt-rpm@lists.laiskiainen.org\n"
-"POT-Creation-Date: 2017-09-06 22:26+0300\n"
+"Report-Msgid-Bugs-To: https://github.com/greeneg/apt-rpm/issues\n"
+"POT-Creation-Date: 2017-09-06 16:14-0400\n"
 "PO-Revision-Date: 2001-01-11 15:40-02:00\n"
 "Last-Translator: Stefano Corsi <ippo@madeinlinux.com>\n"
 "Language-Team: Italian <it@li.org>\n"
@@ -2025,8 +2025,8 @@ msgid ""
 msgstr ""
 "L'esecuzione di questa installazione costringerà a rimuovere temporaneamnete "
 "il pacchetto essenziale %s per un loop di Conflitti/Dipendenze. Questo "
-"spesso è un brutto segno, ma se veramente vuoi farlo attiva l'opzione APT::"
-"Force-LoopBreak."
+"spesso è un brutto segno, ma se veramente vuoi farlo attiva l'opzione "
+"APT::Force-LoopBreak."
 
 #: apt-pkg/pkgcache.cc:128
 #, fuzzy

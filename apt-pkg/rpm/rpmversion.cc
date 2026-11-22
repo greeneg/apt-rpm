@@ -191,8 +191,6 @@ bool rpmVersioningSystem::CheckDep(const char *PkgVer,
 
    rpmds pds = rpmdsSingle(RPMTAG_PROVIDENAME, "", PkgVer, (raptDepFlags) PkgFlags);
    rpmds dds = rpmdsSingle(RPMTAG_REQUIRENAME, "", DepVer, (raptDepFlags) DepFlags);
-   rpmdsSetNoPromote(pds, _rpmds_nopromote);
-   rpmdsSetNoPromote(dds, _rpmds_nopromote);
    rc = rpmdsCompare(pds, dds);
    rpmdsFree(pds);
    rpmdsFree(dds);

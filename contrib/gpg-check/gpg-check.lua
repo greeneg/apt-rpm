@@ -34,7 +34,6 @@ end
 good = 1
 unknown = 0
 illegal = 0
-unsigned = 0
 errors = {}
 
 skiplist = confgetlist("RPM::GPG::Skip-Check", "")
@@ -57,26 +56,24 @@ for i, file in ipairs(files_install) do
 	printhash(i, #files_install)
     end
     if skipthis == false then
-	inp = io.popen("LANG=C /bin/rpm --checksig  "..file.." 2>&1")
- 
-	for line in inp.lines(inp) do
-	    if string.find(line, "gpg") then
-		break
-	    elseif string.find(line, "GPG") then
-		table.insert(errors, _("Unknown signature "..line))
-		unknown = unknown + 1
-		good = nil
-	    elseif string.find(line, "rpmReadSignature") then
-		table.insert(errors, _("Illegal signature "..line))
-		illegal = illegal + 1
-		good = nil
-	    else
-		table.insert(errors, _("Unsigned "..line))
-		unsigned = unsigned + 1
-		good = nil
-	    end
+	status = apt.checksig(file)
+	if status == "nottrusted" then
+	    table.insert(errors, _("Untrusted signature on "..file))
+	    unknown = unknown + 1
+	    good = nil
+	elseif status == "nokey" then
+	    table.insert(errors, _("Unknown signature on "..file))
+	    unknown = unknown + 1
+	    good = nil
+	elseif status == "fail" then
+	    table.insert(errors, _("Illegal signature on "..file))
+	    illegal = illegal + 1
+	    good = nil
+	elseif status == nil then
+	    table.insert(errors, _("Could not open "..file))
+	    illegal = illegal + 1
+	    good = nil
 	end
-	io.close(inp)
     end
 end
 if interactive == "true" then
@@ -85,7 +82,7 @@ end
 
 if not good then
     for i, msg in ipairs(errors) do showerrors(i, msg) end
-    apterror(_("Error(s) while checking package signatures:\n"..unsigned.." unsigned package(s)\n"..unknown.." package(s) with unknown signatures\n"..illegal.." package(s) with illegal/corrupted signatures"))
+    apterror(_("Error(s) while checking package signatures:\n"..unknown.." package(s) with unknown/untrusted signatures\n"..illegal.." package(s) with illegal/corrupted signatures"))
 end
 
 -- vim::sts=4:sw=4

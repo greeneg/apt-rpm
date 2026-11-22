@@ -8,8 +8,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: apt-0.5.15cnc4-alt0.1\n"
-"Report-Msgid-Bugs-To: apt-rpm@lists.laiskiainen.org\n"
-"POT-Creation-Date: 2017-09-06 22:26+0300\n"
+"Report-Msgid-Bugs-To: https://github.com/greeneg/apt-rpm/issues\n"
+"POT-Creation-Date: 2017-09-06 16:14-0400\n"
 "PO-Revision-Date: 2003-12-08 17:41+1200\n"
 "Last-Translator: Anton V. Denisov <avd@altlinux.org>\n"
 "Language-Team: ALT Linux Team <devel@altlinux.org>\n"
@@ -269,8 +269,8 @@ msgstr ""
 "  -c=? Использовать указанный файл конфигурации\n"
 "  -o=? Изменить любой из параметров настройки (например: -o dir::cache=/"
 "tmp)\n"
-"Для более полного описания см. страницы руководства: apt-cache(8) и apt."
-"conf(5).\n"
+"Для более полного описания см. страницы руководства: apt-cache(8) и "
+"apt.conf(5).\n"
 
 #: cmdline/apt-cdrom.cc:376 cmdline/apt-cdrom.cc:500
 #, c-format
@@ -2730,8 +2730,8 @@ msgid ""
 "A proxy server was specified but no login script, Acquire::ftp::ProxyLogin "
 "is empty."
 msgstr ""
-"Прокси сервер был указан, но отсутствует login скрипт, параметр Acquire::"
-"ftp::ProxyLogin пуст"
+"Прокси сервер был указан, но отсутствует login скрипт, параметр "
+"Acquire::ftp::ProxyLogin пуст"
 
 #: methods/ftp.cc:269
 #, c-format
