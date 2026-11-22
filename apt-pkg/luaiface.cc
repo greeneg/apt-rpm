@@ -1297,7 +1297,14 @@ static int AptLua_pkgconfigchanged(lua_State *L)
    rpmtsSetRootDir(TS, RootDir.c_str());
    // Resolve the rpmdb's own path before chrooting below; it must not
    // be re-opened once RootDir is also "/" from the process's view.
-   rpmtsOpenDB(TS, O_RDONLY);
+   // If this fails, the match iterator below would silently yield no
+   // headers and we'd wrongly report "unchanged" - fail closed.
+   if (rpmtsOpenDB(TS, O_RDONLY) != 0) {
+      rpmtsFree(TS);
+      lua_pushnil(L);
+      lua_pushstring(L, _("could not open RPM database to verify configuration files"));
+      return 2;
+   }
 
    // rpmfiVerify() lstat()s each file by its package-relative path
    // as-is, so for an alternate root we must actually chroot(2) for
