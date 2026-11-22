@@ -46,6 +46,7 @@ extern "C" {
 #include <rpm/rpmdb.h>
 #include <rpm/rpmfi.h>
 #include <rpm/rpmfiles.h>
+#include <rpm/rpmcli.h>
 #include <sys/stat.h>
 
 using namespace std;
@@ -1238,26 +1239,33 @@ static int AptLua_pkgchecksig(lua_State *L)
 
    Header hdr = NULL;
    rpmRC rc = rpmReadPackageFile(TS, fd, Path, &hdr);
-   Fclose(fd);
    if (hdr != NULL)
       headerFree(hdr);
-   rpmtsFree(TS);
 
    const char *Status;
-   switch (rc) {
-      case RPMRC_OK:
-	 Status = "ok";
-	 break;
-      case RPMRC_NOTTRUSTED:
-	 Status = "nottrusted";
-	 break;
-      case RPMRC_NOKEY:
-	 Status = "nokey";
-	 break;
-      default:
+   if (rc != RPMRC_OK && rc != RPMRC_NOTTRUSTED && rc != RPMRC_NOKEY) {
+      Status = "fail";
+   } else {
+      // rpmReadPackageFile only verifies the header; a signed header
+      // with a corrupted payload would otherwise report "ok". Rewind
+      // and run the same full header+payload check "rpm --checksig"
+      // does before trusting the result. rpmQVKArgs is rpm's own
+      // default query/verify args; a NULL qva here makes
+      // rpmVerifySignatures misbehave and report false failures.
+      Fseek(fd, 0, SEEK_SET);
+      if (rpmVerifySignatures(&rpmQVKArgs, TS, fd, Path) != 0)
 	 Status = "fail";
-	 break;
+      else if (rc == RPMRC_NOTTRUSTED)
+	 Status = "nottrusted";
+      else if (rc == RPMRC_NOKEY)
+	 Status = "nokey";
+      else
+	 Status = "ok";
    }
+
+   Fclose(fd);
+   rpmtsFree(TS);
+
    lua_pushstring(L, Status);
    return 1;
 }
