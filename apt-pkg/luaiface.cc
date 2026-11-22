@@ -38,6 +38,7 @@ extern "C" {
 #include <limits.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <fcntl.h>
 #include <assert.h>
 
 #include <rpm/rpmlib.h>
@@ -1280,13 +1281,10 @@ static int AptLua_pkgchecksig(lua_State *L)
 // ---------------------------------------------------------------------
 /* Native replacement for shelling out to
    "rpm -V --nodeps --nodigest --noscripts --nosignature <pkg>" and
-   grepping for the 'c' (config file) marker: checks the on-disk size
-   and mode of every %config file recorded for the installed package
-   against what's in the rpmdb. This intentionally mirrors --nodigest
-   (no content hash check) and does not reproduce every verify bit
-   rpm -V checks (owner/group/symlink target/device nodes are not
-   compared) - it is a size+mode approximation sufficient to detect
-   locally edited config files. */
+   grepping for the 'c' (config file) marker: uses librpm's own
+   per-file verification (size, mode, mtime, link target, owner,
+   group, rdev, caps - respecting each file's recorded verify flags),
+   omitting only the content digest to mirror --nodigest. */
 static int AptLua_pkgconfigchanged(lua_State *L)
 {
    const char *Name = luaL_checkstring(L, 1);
@@ -1297,43 +1295,48 @@ static int AptLua_pkgconfigchanged(lua_State *L)
 
    rpmts TS = rpmtsCreate();
    rpmtsSetRootDir(TS, RootDir.c_str());
+   // Resolve the rpmdb's own path before chrooting below; it must not
+   // be re-opened once RootDir is also "/" from the process's view.
+   rpmtsOpenDB(TS, O_RDONLY);
+
+   // rpmfiVerify() lstat()s each file by its package-relative path
+   // as-is, so for an alternate root we must actually chroot(2) for
+   // the duration of the check, like "rpm -V" itself does.
+   int RootFd = -1;
+   bool Chrooted = false;
+   if (RootDir != "/") {
+      RootFd = open("/", O_RDONLY | O_DIRECTORY);
+      if (RootFd >= 0 && chroot(RootDir.c_str()) == 0) {
+	 chdir("/");
+	 Chrooted = true;
+      }
+   }
 
    rpmdbMatchIterator MI = rpmtsInitIterator(TS, RPMDBI_LABEL, Name, 0);
    Header hdr;
    bool Changed = false;
    while (!Changed && (hdr = rpmdbNextIterator(MI)) != NULL) {
-      rpmfi fi = rpmfiNew(TS, hdr, RPMTAG_BASENAMES, RPMFI_NOHEADER);
+      rpmfi fi = rpmfiNew(TS, hdr, RPMTAG_BASENAMES, RPMFI_FLAGS_VERIFY);
       if (fi == NULL)
 	 continue;
-      while (rpmfiNext(fi) >= 0) {
-	 rpmfileAttrs Flags = rpmfiFFlags(fi);
-	 if ((Flags & RPMFILE_CONFIG) == 0 || (Flags & RPMFILE_GHOST) != 0)
+      while (!Changed && rpmfiNext(fi) >= 0) {
+	 if ((rpmfiFFlags(fi) & RPMFILE_CONFIG) == 0)
 	    continue;
-
-	 const char *FN = rpmfiFN(fi);
-	 if (FN == NULL)
-	    continue;
-	 string Path = RootDir;
-	 if (!Path.empty() && Path[Path.size() - 1] != '/' && FN[0] != '/')
-	    Path += "/";
-	 Path += FN;
-
-	 struct stat St;
-	 if (lstat(Path.c_str(), &St) != 0) {
-	    Changed = true;	// file is missing, treat as changed
-	    break;
-	 }
-	 if (S_ISREG(St.st_mode)) {
-	    if ((rpm_loff_t)St.st_size != rpmfiFSize(fi) ||
-		(St.st_mode & 07777) != (rpmfiFMode(fi) & 07777)) {
-	       Changed = true;
-	       break;
-	    }
-	 }
+	 if (rpmfiVerify(fi, RPMVERIFY_FILEDIGEST) != RPMVERIFY_NONE)
+	    Changed = true;
       }
       rpmfiFree(fi);
    }
    rpmdbFreeIterator(MI);
+
+   if (Chrooted) {
+      fchdir(RootFd);
+      chroot(".");
+      chdir("/");
+   }
+   if (RootFd >= 0)
+      close(RootFd);
+
    rpmtsFree(TS);
 
    lua_pushboolean(L, Changed ? 1 : 0);
