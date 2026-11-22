@@ -416,6 +416,9 @@ bool ServerState::ConnectSSL() {
 bool ServerState::ConnectProxyTunnel() {
     char Buf[1000];
     string ProperHost = ServerName.Host;
+    if (ProperHost.find(':') != string::npos) {
+        ProperHost = "[" + ProperHost + "]";
+    }
     sprintf(Buf, ":%u", ServerName.Port != 0 ? ServerName.Port : 443);
     ProperHost += Buf;
 
