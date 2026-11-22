@@ -380,6 +380,15 @@ bool ServerState::ConnectSSL() {
 
     SSL_set_fd(Ssl, ServerFd);
     SSL_set_tlsext_host_name(Ssl, ServerName.Host.c_str());
+    if (_config->FindB("Acquire::https::Verify-Peer", true) == true) {
+        X509_VERIFY_PARAM *Param = SSL_get0_param(Ssl);
+        if (X509_VERIFY_PARAM_set1_ip_asc(Param, ServerName.Host.c_str()) != 1 &&
+            SSL_set1_host(Ssl, ServerName.Host.c_str()) != 1) {
+            SSL_free(Ssl);
+            Ssl = NULL;
+            return _error->Error(_("Unable to configure TLS certificate identity verification for %s"), ServerName.Host.c_str());
+        }
+    }
 
     while (1) {
         int Res = SSL_connect(Ssl);
@@ -419,6 +428,9 @@ bool ServerState::ConnectSSL() {
 bool ServerState::ConnectProxyTunnel() {
     char Buf[1000];
     string ProperHost = ServerName.Host;
+    if (ProperHost.find(':') != string::npos) {
+        ProperHost = "[" + ProperHost + "]";
+    }
     sprintf(Buf, ":%u", ServerName.Port != 0 ? ServerName.Port : 443);
     ProperHost += Buf;
 

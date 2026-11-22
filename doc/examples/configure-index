@@ -97,8 +97,7 @@ Acquire
     Verify-Peer "true";  // Validate the server's TLS certificate
     Proxy "http://127.0.0.1:3128";  // Separate from http::Proxy above
     Proxy::http.us.debian.org "DIRECT"; // Specific per-host setting
-    Timeout "120";
-    Pipeline-Depth "5";
+    // Timeout and Pipeline-Depth use the Acquire::http settings above.
   };
 
   ftp
