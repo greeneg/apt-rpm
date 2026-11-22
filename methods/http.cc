@@ -107,6 +107,10 @@ void CircleBuf::Reset() {
         delete Hash;
         Hash = new Hashes;
     }
+#ifdef WITH_SSL
+    SslWantRead = false;
+    SslWantWrite = false;
+#endif
 }
 /*}}}*/
 // CircleBuf::Read - Read from a FD into the circular buffer		/*{{{*/
@@ -131,11 +135,15 @@ bool CircleBuf::Read(int Fd) {
             Res = SSL_read(Ssl, Buf + (InP % Size), LeftRead());
             if (Res <= 0) {
                 int Err = SSL_get_error(Ssl, Res);
-                if (Err == SSL_ERROR_WANT_READ || Err == SSL_ERROR_WANT_WRITE) {
+                SslWantRead = (Err == SSL_ERROR_WANT_READ);
+                SslWantWrite = (Err == SSL_ERROR_WANT_WRITE);
+                if (SslWantRead == true || SslWantWrite == true) {
                     return true;
                 }
                 return false;
             }
+            SslWantRead = false;
+            SslWantWrite = false;
         } else
 #endif
         {
@@ -226,11 +234,15 @@ bool CircleBuf::Write(int Fd) {
             Res = SSL_write(Ssl, Buf + (OutP % Size), LeftWrite());
             if (Res <= 0) {
                 int Err = SSL_get_error(Ssl, Res);
-                if (Err == SSL_ERROR_WANT_READ || Err == SSL_ERROR_WANT_WRITE) {
+                SslWantRead = (Err == SSL_ERROR_WANT_READ);
+                SslWantWrite = (Err == SSL_ERROR_WANT_WRITE);
+                if (SslWantRead == true || SslWantWrite == true) {
                     return true;
                 }
                 return false;
             }
+            SslWantRead = false;
+            SslWantWrite = false;
         } else
 #endif
         {
@@ -1000,12 +1012,21 @@ bool HttpMethod::Go(bool ToFile, ServerState *Srv) {
     FD_ZERO(&wfds);
 
     /* Add the server. We only send more requests if the connection will
-       be persisting */
+       be persisting. A pending SSL_read()/SSL_write() may have asked for
+       the opposite readiness event, so wait on whichever it requested. */
     if (Srv->Out.WriteSpace() == true && Srv->ServerFd != -1 && Srv->Persistent == true) {
+#ifdef WITH_SSL
+        FD_SET(Srv->ServerFd, Srv->Out.SslWantRead == true ? &rfds : &wfds);
+#else
         FD_SET(Srv->ServerFd, &wfds);
+#endif
     }
     if (Srv->In.ReadSpace() == true && Srv->ServerFd != -1) {
+#ifdef WITH_SSL
+        FD_SET(Srv->ServerFd, Srv->In.SslWantWrite == true ? &wfds : &rfds);
+#else
         FD_SET(Srv->ServerFd, &rfds);
+#endif
     }
 
     // Add the file
@@ -1044,26 +1065,41 @@ bool HttpMethod::Go(bool ToFile, ServerState *Srv) {
         return ServerDie(Srv);
     }
 
-    // Handle server IO
-    if (Srv->ServerFd != -1 && FD_ISSET(Srv->ServerFd, &rfds)) {
-        errno = 0;
+    // Handle server IO. A pending SSL op may be waiting on the opposite
+    // readiness event from its own direction; check accordingly.
+    if (Srv->ServerFd != -1) {
 #ifdef WITH_SSL
-        if (Srv->In.Read(Srv->ServerFd, Srv->Ssl) == false) {
+        bool InReady = (Srv->In.SslWantWrite == true) ? FD_ISSET(Srv->ServerFd, &wfds) : FD_ISSET(Srv->ServerFd, &rfds);
 #else
-        if (Srv->In.Read(Srv->ServerFd) == false) {
+        bool InReady = FD_ISSET(Srv->ServerFd, &rfds);
 #endif
-            return ServerDie(Srv);
+        if (InReady == true) {
+            errno = 0;
+#ifdef WITH_SSL
+            if (Srv->In.Read(Srv->ServerFd, Srv->Ssl) == false) {
+#else
+            if (Srv->In.Read(Srv->ServerFd) == false) {
+#endif
+                return ServerDie(Srv);
+            }
         }
     }
 
-    if (Srv->ServerFd != -1 && FD_ISSET(Srv->ServerFd, &wfds)) {
-        errno = 0;
+    if (Srv->ServerFd != -1) {
 #ifdef WITH_SSL
-        if (Srv->Out.Write(Srv->ServerFd, Srv->Ssl) == false) {
+        bool OutReady = (Srv->Out.SslWantRead == true) ? FD_ISSET(Srv->ServerFd, &rfds) : FD_ISSET(Srv->ServerFd, &wfds);
 #else
-        if (Srv->Out.Write(Srv->ServerFd) == false) {
+        bool OutReady = FD_ISSET(Srv->ServerFd, &wfds);
 #endif
-            return ServerDie(Srv);
+        if (OutReady == true) {
+            errno = 0;
+#ifdef WITH_SSL
+            if (Srv->Out.Write(Srv->ServerFd, Srv->Ssl) == false) {
+#else
+            if (Srv->Out.Write(Srv->ServerFd) == false) {
+#endif
+                return ServerDie(Srv);
+            }
         }
     }
 

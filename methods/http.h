@@ -71,6 +71,13 @@ class CircleBuf {
 
   public:
     Hashes *Hash;
+#ifdef WITH_SSL
+    // Set by Read()/Write() when the last SSL_read()/SSL_write() call
+    // wanted the opposite readiness direction; Go() uses these to pick
+    // the right fd_set so the pending op is retried on the right event.
+    bool SslWantRead;
+    bool SslWantWrite;
+#endif
 
     // Read data in
 #ifdef WITH_SSL
