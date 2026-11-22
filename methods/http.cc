@@ -1019,6 +1019,20 @@ bool HttpMethod::Go(bool ToFile, ServerState *Srv) {
         return false;
     }
 
+#ifdef WITH_SSL
+    bool SslDataPending = false;
+    // OpenSSL may already have decrypted response data buffered internally
+    // even when the socket is no longer readable.
+    if (Srv->ServerFd != -1 && Srv->Ssl != NULL && Srv->In.ReadSpace() == true &&
+        Srv->In.SslWantWrite == false && SSL_pending(Srv->Ssl) > 0) {
+        SslDataPending = true;
+        errno = 0;
+        if (Srv->In.Read(Srv->ServerFd, Srv->Ssl) == false) {
+            return ServerDie(Srv);
+        }
+    }
+#endif
+
     fd_set rfds, wfds;
     FD_ZERO(&rfds);
     FD_ZERO(&wfds);
@@ -1062,7 +1076,7 @@ bool HttpMethod::Go(bool ToFile, ServerState *Srv) {
 
     // Select
     struct timeval tv;
-    tv.tv_sec = TimeOut;
+    tv.tv_sec = SslDataPending == true ? 0 : TimeOut;
     tv.tv_usec = 0;
     int Res = 0;
     if ((Res = select(MaxFd + 1, &rfds, &wfds, 0, &tv)) < 0) {
@@ -1072,7 +1086,7 @@ bool HttpMethod::Go(bool ToFile, ServerState *Srv) {
         return _error->Errno("select", _("Select failed"));
     }
 
-    if (Res == 0) {
+    if (Res == 0 && SslDataPending == false) {
         _error->Error(_("Connection timed out"));
         return ServerDie(Srv);
     }
