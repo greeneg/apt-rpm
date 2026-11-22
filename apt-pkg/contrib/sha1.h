@@ -6,7 +6,7 @@
    Legacy wrapper around raptHash class.
 
    ##################################################################### */
-									/*}}}*/
+/*}}}*/
 #ifndef APTPKG_SHA1_H
 #define APTPKG_SHA1_H
 
@@ -17,10 +17,9 @@ using std::string;
 
 typedef string SHA1SumValue;
 
-class SHA1Summation : public raptHash
-{
-   public:
-   SHA1Summation() : raptHash("SHA1-Hash") {};
+class SHA1Summation : public raptHash {
+  public:
+    SHA1Summation() : raptHash("SHA1-Hash") {};
 };
 
 #endif

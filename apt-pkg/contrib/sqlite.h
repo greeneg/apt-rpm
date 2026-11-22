@@ -7,49 +7,47 @@
 #include <string>
 #include <map>
 
-using std::string;
 using std::map;
+using std::string;
 
-class SqliteQuery
-{
-   protected:
-   sqlite3 *DB;
-   sqlite3_stmt *stmt;
+class SqliteQuery {
+  protected:
+    sqlite3 *DB;
+    sqlite3_stmt *stmt;
 
-   map<string,int> ColNames;
+    map<string, int> ColNames;
 
-   public:
-   bool Exec(const string & SQL);
-   bool Bind(int index, int val);
+  public:
+    bool Exec(const string &SQL);
+    bool Bind(int index, int val);
 
-   bool Rewind();
-   bool Step();
+    bool Rewind();
+    bool Step();
 
-   bool Get(const string & ColName, string & Val);
-   bool Get(const string & ColName, unsigned long & Val);
+    bool Get(const string &ColName, string &Val);
+    bool Get(const string &ColName, unsigned long &Val);
 
-   string GetCol(const string & ColName);
-   unsigned long GetColI(const string & ColName);
+    string GetCol(const string &ColName);
+    unsigned long GetColI(const string &ColName);
 
-   SqliteQuery(sqlite3 *DB);
-   ~SqliteQuery();
+    SqliteQuery(sqlite3 *DB);
+    ~SqliteQuery();
 };
 
-class SqliteDB
-{
-   protected:
-   sqlite3 *DB;
-   string DBPath;
+class SqliteDB {
+  protected:
+    sqlite3 *DB;
+    string DBPath;
 
-   public:
-   SqliteQuery *Query(const string & SQL);
-   bool Exclusive(bool mode);
+  public:
+    SqliteQuery *Query(const string &SQL);
+    bool Exclusive(bool mode);
 
-   SqliteDB(string DBPath);
-   ~SqliteDB();
+    SqliteDB(string DBPath);
+    ~SqliteDB();
 };
 
 #endif /* WITH_SQLITE3 */
 
 #endif
-// vim:sts=3:sw=3
+// vim:ts=4:sw=4:et

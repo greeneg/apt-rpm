@@ -4,71 +4,67 @@
 /* ######################################################################
 
    Index File - Abstraction for an index of archive/souce file.
-   
+
    ##################################################################### */
-									/*}}}*/
+/*}}}*/
 // Include Files							/*{{{*/
 #include <apt-pkg/indexfile.h>
 #include <apt-pkg/error.h>
-									/*}}}*/
+/*}}}*/
 #include <cstring>
 
 // Global list of Item supported
-static  pkgIndexFile::Type *ItmList[10];
+static pkgIndexFile::Type *ItmList[10];
 pkgIndexFile::Type **pkgIndexFile::Type::GlobalList = ItmList;
 unsigned long pkgIndexFile::Type::GlobalListLen = 0;
 
 // Type::Type - Constructor						/*{{{*/
 // ---------------------------------------------------------------------
 /* */
-pkgIndexFile::Type::Type()
-{
-   ItmList[GlobalListLen] = this;
-   GlobalListLen++;   
+pkgIndexFile::Type::Type() {
+    ItmList[GlobalListLen] = this;
+    GlobalListLen++;
 }
-									/*}}}*/
+/*}}}*/
 // Type::GetType - Locate the type by name				/*{{{*/
 // ---------------------------------------------------------------------
 /* */
-pkgIndexFile::Type *pkgIndexFile::Type::GetType(const char *Type)
-{
-   for (unsigned I = 0; I != GlobalListLen; I++)
-      if (strcmp(GlobalList[I]->Label,Type) == 0)
-	 return GlobalList[I];
-   return 0;
+pkgIndexFile::Type *pkgIndexFile::Type::GetType(const char *Type) {
+    for (unsigned I = 0; I != GlobalListLen; I++) {
+        if (strcmp(GlobalList[I]->Label, Type) == 0) {
+            return GlobalList[I];
+        }
+    }
+    return 0;
 }
-									/*}}}*/
-    
+/*}}}*/
+
 // IndexFile::GetIndexes - Stub						/*{{{*/
 // ---------------------------------------------------------------------
 /* */
-bool pkgIndexFile::GetIndexes(pkgAcquire *Owner) const
-{
-   return _error->Error("Internal Error, this index file is not downloadable");
+bool pkgIndexFile::GetIndexes(pkgAcquire *Owner) const {
+    return _error->Error("Internal Error, this index file is not downloadable");
 }
-									/*}}}*/
+/*}}}*/
 // IndexFile::ArchiveInfo - Stub					/*{{{*/
 // ---------------------------------------------------------------------
 /* */
-string pkgIndexFile::ArchiveInfo(pkgCache::VerIterator Ver) const
-{
-   return string();
+string pkgIndexFile::ArchiveInfo(pkgCache::VerIterator Ver) const {
+    return string();
 }
-									/*}}}*/
+/*}}}*/
 // IndexFile::FindInCache - Stub					/*{{{*/
 // ---------------------------------------------------------------------
 /* */
-pkgCache::PkgFileIterator pkgIndexFile::FindInCache(pkgCache &Cache) const
-{
-   return pkgCache::PkgFileIterator(Cache);
+pkgCache::PkgFileIterator pkgIndexFile::FindInCache(pkgCache &Cache) const {
+    return pkgCache::PkgFileIterator(Cache);
 }
-									/*}}}*/
+/*}}}*/
 // IndexFile::SourceIndex - Stub					/*{{{*/
 // ---------------------------------------------------------------------
 /* */
 string pkgIndexFile::SourceInfo(pkgSrcRecords::Parser const &Record,
-				pkgSrcRecords::File const &File) const
-{
-   return string();
+    pkgSrcRecords::File const &File) const {
+    return string();
 }
-									/*}}}*/
+/*}}}*/

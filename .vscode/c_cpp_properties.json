@@ -11,7 +11,8 @@
                 "LIBDIR=\"/usr/local/lib64\"",
                 "PKGDATADIR=\"/usr/local/share/apt\"",
                 "LOCALEDIR=\"/usr/local/share/locale\"",
-                "APT_DOMAIN=\"apt\""
+                "APT_DOMAIN=\"apt\"",
+                "WITH_POSIX"
             ],
             "compilerPath": "/usr/bin/clang",
             "cStandard": "gnu17",

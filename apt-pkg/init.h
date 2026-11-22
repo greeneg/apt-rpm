@@ -7,9 +7,9 @@
 
    This function must be called to configure the config class before
    calling many APT library functions.
-   
+
    ##################################################################### */
-									/*}}}*/
+/*}}}*/
 #ifndef PKGLIB_INIT_H
 #define PKGLIB_INIT_H
 
@@ -20,23 +20,22 @@
 #define APT_PKG_MAJOR 3
 #define APT_PKG_MINOR 3
 #define APT_PKG_RELEASE 0
-    
+
 extern const char *pkgVersion;
 extern const char *pkgLibVersion;
 extern const char *pkgOS;
 extern const char *pkgCPU;
 
 bool pkgInitConfig(Configuration &Cnf);
-bool pkgInitSystem(Configuration &Cnf,pkgSystem *&Sys);
+bool pkgInitSystem(Configuration &Cnf, pkgSystem *&Sys);
 
 #ifdef APT_COMPATIBILITY
 #if APT_COMPATIBILITY != 986
 #warning "Using APT_COMPATIBILITY"
 #endif
 
-inline bool pkgInitialize(Configuration &Cnf) 
-{
-   return pkgInitConfig(Cnf) && pkgInitSystem(Cnf,_system);
+inline bool pkgInitialize(Configuration &Cnf) {
+    return pkgInitConfig(Cnf) && pkgInitSystem(Cnf, _system);
 };
 #endif
 

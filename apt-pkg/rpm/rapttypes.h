@@ -19,5 +19,5 @@ typedef rpmsenseFlags raptDepFlags;
 typedef uint32_t raptInt;
 typedef uint32_t raptDbOffset;
 
-#define raptInitIterator(a,b,c,d) rpmtsInitIterator(a,(rpmTag)b,c,d)
+#define raptInitIterator(a, b, c, d) rpmtsInitIterator(a, (rpmTag) b, c, d)
 #endif /* PKGLIB_RAPTTYPES_H */
