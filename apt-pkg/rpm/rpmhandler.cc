@@ -634,18 +634,22 @@ string RPMDBHandler::DataPath(bool DirectoryOnly)
    string Backend(backend ? backend : "");
    free(backend);
 
-   const char *File;
-   if (Backend == "sqlite")
-      File = "rpmdb.sqlite";
-   else if (Backend == "bdb")
-      File = "Packages";
-   else		// "ndb", or unset (rpm's compiled-in default is ndb)
+   const char *File = NULL;
+   if (Backend.empty() || Backend == "ndb")
       File = "Packages.db";
+   else if (Backend == "bdb" || Backend == "bdb_ro")
+      File = "Packages";
+   else if (Backend == "sqlite")
+      File = "rpmdb.sqlite";
+   // else: unsupported/unrecognized backend (e.g. "dummy") - don't
+   // assume a file, fall through to the directory stat below.
 
-   string Path = DBPath + "/" + File;
-   struct stat St;
-   if (stat(Path.c_str(), &St) == 0)
-      return Path;
+   if (File != NULL) {
+      string Path = DBPath + "/" + File;
+      struct stat St;
+      if (stat(Path.c_str(), &St) == 0)
+	 return Path;
+   }
 
    // Nothing there yet (e.g. a brand-new, empty root); fall back to
    // the directory itself so stat() still succeeds.
