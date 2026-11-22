@@ -77,6 +77,13 @@ class CircleBuf {
     // the right fd_set so the pending op is retried on the right event.
     bool SslWantRead;
     bool SslWantWrite;
+    // OpenSSL requires a failed SSL_write() to be retried with the exact
+    // same buffer and length, so remember the length used until it succeeds.
+    bool SslWritePending;
+    unsigned long SslWriteLen;
+    // Same requirement applies to SSL_read() retries.
+    bool SslReadPending;
+    unsigned long SslReadLen;
 #endif
 
     // Read data in

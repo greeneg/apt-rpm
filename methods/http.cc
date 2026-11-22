@@ -110,6 +110,10 @@ void CircleBuf::Reset() {
 #ifdef WITH_SSL
     SslWantRead = false;
     SslWantWrite = false;
+    SslWritePending = false;
+    SslWriteLen = 0;
+    SslReadPending = false;
+    SslReadLen = 0;
 #endif
 }
 /*}}}*/
@@ -132,18 +136,23 @@ bool CircleBuf::Read(int Fd) {
         int Res;
 #ifdef WITH_SSL
         if (Ssl != NULL) {
-            Res = SSL_read(Ssl, Buf + (InP % Size), LeftRead());
+            unsigned long Sz = (SslReadPending == true) ? SslReadLen : LeftRead();
+            Res = SSL_read(Ssl, Buf + (InP % Size), Sz);
             if (Res <= 0) {
                 int Err = SSL_get_error(Ssl, Res);
                 SslWantRead = (Err == SSL_ERROR_WANT_READ);
                 SslWantWrite = (Err == SSL_ERROR_WANT_WRITE);
                 if (SslWantRead == true || SslWantWrite == true) {
+                    SslReadPending = true;
+                    SslReadLen = Sz;
                     return true;
                 }
+                SslReadPending = false;
                 return false;
             }
             SslWantRead = false;
             SslWantWrite = false;
+            SslReadPending = false;
         } else
 #endif
         {
@@ -216,7 +225,16 @@ bool CircleBuf::Write(int Fd, SSL *Ssl) {
 bool CircleBuf::Write(int Fd) {
 #endif
     while (1) {
+#ifdef WITH_SSL
+        // While an SSL_write() retry is outstanding, OpenSSL requires the
+        // exact same buffer and length on every call, so don't grow the
+        // buffer (via FillOut) until that write finally succeeds.
+        if (Ssl == NULL || SslWritePending == false) {
+            FillOut();
+        }
+#else
         FillOut();
+#endif
 
         // Woops, buffer is empty
         if (OutP == InP) {
@@ -231,18 +249,23 @@ bool CircleBuf::Write(int Fd) {
         int Res;
 #ifdef WITH_SSL
         if (Ssl != NULL) {
-            Res = SSL_write(Ssl, Buf + (OutP % Size), LeftWrite());
+            unsigned long Sz = (SslWritePending == true) ? SslWriteLen : LeftWrite();
+            Res = SSL_write(Ssl, Buf + (OutP % Size), Sz);
             if (Res <= 0) {
                 int Err = SSL_get_error(Ssl, Res);
                 SslWantRead = (Err == SSL_ERROR_WANT_READ);
                 SslWantWrite = (Err == SSL_ERROR_WANT_WRITE);
                 if (SslWantRead == true || SslWantWrite == true) {
+                    SslWritePending = true;
+                    SslWriteLen = Sz;
                     return true;
                 }
+                SslWritePending = false;
                 return false;
             }
             SslWantRead = false;
             SslWantWrite = false;
+            SslWritePending = false;
         } else
 #endif
         {
