@@ -1301,7 +1301,9 @@ static int AptLua_pkgconfigchanged(lua_State *L)
 
    // rpmfiVerify() lstat()s each file by its package-relative path
    // as-is, so for an alternate root we must actually chroot(2) for
-   // the duration of the check, like "rpm -V" itself does.
+   // the duration of the check, like "rpm -V" itself does. If we
+   // can't enter it, fail closed instead of silently verifying
+   // against the host root and possibly reporting "unchanged".
    int RootFd = -1;
    bool Chrooted = false;
    if (RootDir != "/") {
@@ -1309,6 +1311,13 @@ static int AptLua_pkgconfigchanged(lua_State *L)
       if (RootFd >= 0 && chroot(RootDir.c_str()) == 0) {
 	 chdir("/");
 	 Chrooted = true;
+      } else {
+	 if (RootFd >= 0)
+	    close(RootFd);
+	 rpmtsFree(TS);
+	 lua_pushnil(L);
+	 lua_pushstring(L, _("could not enter RPM::RootDir to verify configuration files"));
+	 return 2;
       }
    }
 
