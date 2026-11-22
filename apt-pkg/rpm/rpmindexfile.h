@@ -4,16 +4,16 @@
 /* ######################################################################
 
    RPM Index Files
-   
+
    There are three sorts currently
-   
+
    pkglist files
    The system RPM database
    srclist files
-   
-   ##################################################################### 
+
+   #####################################################################
  */
-									/*}}}*/
+/*}}}*/
 #ifndef PKGLIB_RPMINDEXFILE_H
 #define PKGLIB_RPMINDEXFILE_H
 
@@ -26,351 +26,366 @@ class RPMHandler;
 class RPMDBHandler;
 class pkgRepository;
 
-class rpmIndexFile : public pkgIndexFile
-{
-   private:
-   mutable off_t cachedSize;
+class rpmIndexFile : public pkgIndexFile {
+  private:
+    mutable off_t cachedSize;
 
-   protected:
-   virtual string IndexPath() const = 0;
-   
-   public:
+  protected:
+    virtual string IndexPath() const = 0;
 
-   virtual RPMHandler *CreateHandler() const = 0;
-   virtual bool HasPackages() const {return false;}
-   virtual off_t Size() const;
+  public:
+    virtual RPMHandler *CreateHandler() const = 0;
+    virtual bool HasPackages() const {
+        return false;
+    }
+    virtual off_t Size() const;
 
-   rpmIndexFile() : cachedSize(-1) {};
+    rpmIndexFile() : cachedSize(-1) {};
 };
 
-class rpmDatabaseIndex : public rpmIndexFile
-{
-   protected:
-   virtual string IndexPath() const;
+class rpmDatabaseIndex : public rpmIndexFile {
+  protected:
+    virtual string IndexPath() const;
 
-   public:
+  public:
+    virtual const Type *GetType() const;
 
-   virtual const Type *GetType() const;
+    // Creates a RPMHandler suitable for usage with this object
+    virtual RPMHandler *CreateHandler() const;
 
-   // Creates a RPMHandler suitable for usage with this object
-   virtual RPMHandler *CreateHandler() const;
-   
-   // Interface for acquire
-   virtual string Describe(bool Short) const {return "RPM Database";}
-   
-   // Interface for the Cache Generator
-   virtual off_t Size() const;
-   virtual bool Exists() const {return true;}
-   virtual bool HasPackages() const {return true;}
-   virtual bool Merge(pkgCacheGenerator &Gen,OpProgress &Prog) const;
-   virtual bool MergeFileProvides(pkgCacheGenerator &/*Gen*/,
-		   		  OpProgress &/*Prog*/) const;
-   virtual pkgCache::PkgFileIterator FindInCache(pkgCache &Cache) const;
+    // Interface for acquire
+    virtual string Describe(bool Short) const {
+        return "RPM Database";
+    }
 
-   rpmDatabaseIndex();
+    // Interface for the Cache Generator
+    virtual off_t Size() const;
+    virtual bool Exists() const {
+        return true;
+    }
+    virtual bool HasPackages() const {
+        return true;
+    }
+    virtual bool Merge(pkgCacheGenerator &Gen, OpProgress &Prog) const;
+    virtual bool MergeFileProvides(pkgCacheGenerator & /*Gen*/,
+        OpProgress & /*Prog*/) const;
+    virtual pkgCache::PkgFileIterator FindInCache(pkgCache &Cache) const;
+
+    rpmDatabaseIndex();
 };
 
-class rpmListIndex : public rpmIndexFile
-{
+class rpmListIndex : public rpmIndexFile {
 
-   protected:
+  protected:
+    string URI;
+    string Dist;
+    string Section;
+    pkgRepository *Repository;
 
-   string URI;
-   string Dist;
-   string Section;
-   pkgRepository *Repository;
-   
-   string ReleaseFile(string Type) const;
-   string ReleaseURI(string Type) const;   
-   string ReleaseInfo(string Type) const;   
+    string ReleaseFile(string Type) const;
+    string ReleaseURI(string Type) const;
+    string ReleaseInfo(string Type) const;
 
-   string Info(string Type) const;
-   string IndexFile(string Type) const;
-   string IndexURI(string Type) const;   
+    string Info(string Type) const;
+    string IndexFile(string Type) const;
+    string IndexURI(string Type) const;
 
-   virtual string MainType() const = 0;
-   virtual string IndexPath() const {return IndexFile(MainType());}
-   virtual string ReleasePath() const {return IndexFile("release");}
+    virtual string MainType() const = 0;
+    virtual string IndexPath() const {
+        return IndexFile(MainType());
+    }
+    virtual string ReleasePath() const {
+        return IndexFile("release");
+    }
 
-   public:
+  public:
+    virtual bool GetReleases(pkgAcquire *Owner) const;
 
-   virtual bool GetReleases(pkgAcquire *Owner) const;
+    // Interface for the Cache Generator
+    virtual bool Exists() const;
 
-   // Interface for the Cache Generator
-   virtual bool Exists() const;
+    // Interface for acquire
+    virtual string Describe(bool Short) const;
 
-   // Interface for acquire
-   virtual string Describe(bool Short) const;   
-
-   rpmListIndex(string URI,string Dist,string Section,
-		pkgRepository *Repository) :
-               	URI(URI), Dist(Dist), Section(Section),
-   		Repository(Repository)
-	{}
+    rpmListIndex(string URI, string Dist, string Section,
+        pkgRepository *Repository) : URI(URI), Dist(Dist), Section(Section),
+                                     Repository(Repository) {
+    }
 };
 
-class rpmPkgListIndex : public rpmListIndex
-{
-   protected:
+class rpmPkgListIndex : public rpmListIndex {
+  protected:
+    virtual string MainType() const {
+        return "pkglist";
+    }
+    virtual string IndexPath() const {
+        return IndexFile(MainType());
+    }
 
-   virtual string MainType() const {return "pkglist";}
-   virtual string IndexPath() const {return IndexFile(MainType());}
+  public:
+    virtual const Type *GetType() const;
 
-   public:
+    // Creates a RPMHandler suitable for usage with this object
+    virtual RPMHandler *CreateHandler() const {
+        return new RPMFileHandler(IndexPath());
+    }
 
-   virtual const Type *GetType() const;
-   
-   // Creates a RPMHandler suitable for usage with this object
-   virtual RPMHandler *CreateHandler() const
-	   { return new RPMFileHandler(IndexPath()); }
+    // Stuff for accessing files on remote items
+    virtual string ArchiveInfo(pkgCache::VerIterator Ver) const;
+    virtual string ArchiveURI(string File) const;
 
-   // Stuff for accessing files on remote items
-   virtual string ArchiveInfo(pkgCache::VerIterator Ver) const;
-   virtual string ArchiveURI(string File) const;
-   
-   // Interface for acquire
-   virtual bool GetIndexes(pkgAcquire *Owner) const;
-   
-   // Interface for the Cache Generator
-   virtual bool HasPackages() const {return true;};
-   virtual bool Merge(pkgCacheGenerator &Gen,OpProgress &Prog) const;
-   virtual bool MergeFileProvides(pkgCacheGenerator &/*Gen*/,
-		   		  OpProgress &/*Prog*/) const;
-   virtual pkgCache::PkgFileIterator FindInCache(pkgCache &Cache) const;
+    // Interface for acquire
+    virtual bool GetIndexes(pkgAcquire *Owner) const;
 
-   rpmPkgListIndex(string URI,string Dist,string Section,
-		   pkgRepository *Repository) :
-	   rpmListIndex(URI,Dist,Section,Repository)
-      {};
+    // Interface for the Cache Generator
+    virtual bool HasPackages() const {
+        return true;
+    };
+    virtual bool Merge(pkgCacheGenerator &Gen, OpProgress &Prog) const;
+    virtual bool MergeFileProvides(pkgCacheGenerator & /*Gen*/,
+        OpProgress & /*Prog*/) const;
+    virtual pkgCache::PkgFileIterator FindInCache(pkgCache &Cache) const;
+
+    rpmPkgListIndex(string URI, string Dist, string Section,
+        pkgRepository *Repository) : rpmListIndex(URI, Dist, Section, Repository) {};
 };
 
+class rpmSrcListIndex : public rpmListIndex {
+  protected:
+    virtual string MainType() const {
+        return "srclist";
+    }
 
-class rpmSrcListIndex : public rpmListIndex
-{
-   protected:
+  public:
+    virtual const Type *GetType() const;
 
-   virtual string MainType() const {return "srclist";}
+    // Creates a RPMHandler suitable for usage with this object
+    virtual RPMHandler *CreateHandler() const {
+        return new RPMFileHandler(IndexPath());
+    }
 
-   public:
+    // Stuff for accessing files on remote items
+    virtual string SourceInfo(pkgSrcRecords::Parser const &Record,
+        pkgSrcRecords::File const &File) const;
+    virtual string ArchiveURI(string File) const;
 
-   virtual const Type *GetType() const;
+    // Interface for acquire
+    virtual bool GetIndexes(pkgAcquire *Owner) const;
 
-   // Creates a RPMHandler suitable for usage with this object
-   virtual RPMHandler *CreateHandler() const
-	   { return new RPMFileHandler(IndexPath()); }
+    // Interface for the record parsers
+    virtual pkgSrcRecords::Parser *CreateSrcParser() const;
 
-   // Stuff for accessing files on remote items
-   virtual string SourceInfo(pkgSrcRecords::Parser const &Record,
-			     pkgSrcRecords::File const &File) const;
-   virtual string ArchiveURI(string File) const;
-   
-   // Interface for acquire
-   virtual bool GetIndexes(pkgAcquire *Owner) const;
-
-   // Interface for the record parsers
-   virtual pkgSrcRecords::Parser *CreateSrcParser() const;
-   
-
-   rpmSrcListIndex(string URI,string Dist,string Section,
-		   pkgRepository *Repository) :
-	   rpmListIndex(URI,Dist,Section,Repository)
-      {}
+    rpmSrcListIndex(string URI, string Dist, string Section,
+        pkgRepository *Repository) : rpmListIndex(URI, Dist, Section, Repository) {
+    }
 };
 
-class rpmPkgDirIndex : public rpmPkgListIndex
-{
-   protected:
+class rpmPkgDirIndex : public rpmPkgListIndex {
+  protected:
+    virtual string MainType() const {
+        return "pkgdir";
+    }
+    virtual string IndexPath() const;
+    virtual string ReleasePath() const;
 
-   virtual string MainType() const {return "pkgdir";}
-   virtual string IndexPath() const;   
-   virtual string ReleasePath() const;
+  public:
+    virtual bool GetReleases(pkgAcquire *Owner) const {
+        return true;
+    }
+    virtual bool GetIndexes(pkgAcquire *Owner) const {
+        return true;
+    }
 
-   public:
+    // Creates a RPMHandler suitable for usage with this object
+    virtual RPMHandler *CreateHandler() const {
+        return new RPMDirHandler(IndexPath());
+    }
 
-   virtual bool GetReleases(pkgAcquire *Owner) const { return true; }
-   virtual bool GetIndexes(pkgAcquire *Owner) const { return true; }
+    virtual const Type *GetType() const;
 
-   // Creates a RPMHandler suitable for usage with this object
-   virtual RPMHandler *CreateHandler() const
-	   { return new RPMDirHandler(IndexPath()); }
-
-   virtual const Type *GetType() const;
-
-   rpmPkgDirIndex(string URI,string Dist,string Section,
-		   pkgRepository *Repository) :
-	   rpmPkgListIndex(URI,Dist,Section,Repository)
-      {}
+    rpmPkgDirIndex(string URI, string Dist, string Section,
+        pkgRepository *Repository) : rpmPkgListIndex(URI, Dist, Section, Repository) {
+    }
 };
 
-class rpmSrcDirIndex : public rpmSrcListIndex
-{
-   protected:
+class rpmSrcDirIndex : public rpmSrcListIndex {
+  protected:
+    virtual string MainType() const {
+        return "srcdir";
+    }
+    virtual string IndexPath() const;
 
-   virtual string MainType() const {return "srcdir";}
-   virtual string IndexPath() const;   
+  public:
+    virtual bool GetReleases(pkgAcquire *Owner) const {
+        return true;
+    }
+    virtual bool GetIndexes(pkgAcquire *Owner) const {
+        return true;
+    }
 
-   public:
+    // Creates a RPMHandler suitable for usage with this object
+    virtual RPMHandler *CreateHandler() const {
+        return new RPMDirHandler(IndexPath());
+    }
 
-   virtual bool GetReleases(pkgAcquire *Owner) const { return true; }
-   virtual bool GetIndexes(pkgAcquire *Owner) const { return true; }
+    virtual const Type *GetType() const;
 
-   // Creates a RPMHandler suitable for usage with this object
-   virtual RPMHandler *CreateHandler() const
-	   { return new RPMDirHandler(IndexPath()); }
-
-   virtual const Type *GetType() const;
-   
-   rpmSrcDirIndex(string URI,string Dist,string Section,
-		   pkgRepository *Repository) :
-	   rpmSrcListIndex(URI,Dist,Section,Repository)
-      {}
+    rpmSrcDirIndex(string URI, string Dist, string Section,
+        pkgRepository *Repository) : rpmSrcListIndex(URI, Dist, Section, Repository) {
+    }
 };
 
-class rpmSinglePkgIndex : public rpmPkgListIndex
-{
-   protected:
+class rpmSinglePkgIndex : public rpmPkgListIndex {
+  protected:
+    string FilePath;
 
-   string FilePath;
+    virtual string MainType() const {
+        return "pkg";
+    }
+    virtual string IndexPath() const {
+        return FilePath;
+    }
 
-   virtual string MainType() const {return "pkg";}
-   virtual string IndexPath() const {return FilePath;}
+  public:
+    virtual bool GetReleases(pkgAcquire *Owner) const {
+        return true;
+    }
+    virtual bool GetIndexes(pkgAcquire *Owner) const {
+        return true;
+    }
 
-   public:
+    // Creates a RPMHandler suitable for usage with this object
+    virtual RPMHandler *CreateHandler() const {
+        return new RPMSingleFileHandler(IndexPath());
+    }
 
-   virtual bool GetReleases(pkgAcquire *Owner) const { return true; }
-   virtual bool GetIndexes(pkgAcquire *Owner) const { return true; }
+    virtual string ArchiveURI(string File) const;
 
-   // Creates a RPMHandler suitable for usage with this object
-   virtual RPMHandler *CreateHandler() const
-	   { return new RPMSingleFileHandler(IndexPath()); }
+    virtual const Type *GetType() const;
 
-   virtual string ArchiveURI(string File) const;
-
-   virtual const Type *GetType() const;
-   
-   rpmSinglePkgIndex(string File) :
-	   rpmPkgListIndex("", "", "", NULL), FilePath(File) {}
+    rpmSinglePkgIndex(string File) : rpmPkgListIndex("", "", "", NULL), FilePath(File) {
+    }
 };
 
-class rpmSingleSrcIndex : public rpmSrcListIndex
-{
-   protected:
+class rpmSingleSrcIndex : public rpmSrcListIndex {
+  protected:
+    string FilePath;
 
-   string FilePath;
+    virtual string MainType() const {
+        return "src";
+    }
+    virtual string IndexPath() const {
+        return FilePath;
+    }
 
-   virtual string MainType() const {return "src";}
-   virtual string IndexPath() const {return FilePath;}
+  public:
+    virtual bool GetReleases(pkgAcquire *Owner) const {
+        return true;
+    }
+    virtual bool GetIndexes(pkgAcquire *Owner) const {
+        return true;
+    }
 
-   public:
+    // Creates a RPMHandler suitable for usage with this object
+    virtual RPMHandler *CreateHandler() const {
+        return new RPMSingleFileHandler(IndexPath());
+    }
 
-   virtual bool GetReleases(pkgAcquire *Owner) const { return true; }
-   virtual bool GetIndexes(pkgAcquire *Owner) const { return true; }
+    virtual string ArchiveURI(string File) const;
 
-   // Creates a RPMHandler suitable for usage with this object
-   virtual RPMHandler *CreateHandler() const
-	   { return new RPMSingleFileHandler(IndexPath()); }
+    virtual const Type *GetType() const;
 
-   virtual string ArchiveURI(string File) const;
-
-   virtual const Type *GetType() const;
-   
-   rpmSingleSrcIndex(string File) :
-	   rpmSrcListIndex("", "", "", NULL), FilePath(File) {}
+    rpmSingleSrcIndex(string File) : rpmSrcListIndex("", "", "", NULL), FilePath(File) {
+    }
 };
 
 #ifdef APT_WITH_REPOMD
-class rpmRepomdIndex : public rpmIndexFile
-{
-   protected:
-   repomdXML *RepoMD;
+class rpmRepomdIndex : public rpmIndexFile {
+  protected:
+    repomdXML *RepoMD;
 
-   string URI;
-   string Dist;
-   string Section;
-   pkgRepository *Repository;
+    string URI;
+    string Dist;
+    string Section;
+    pkgRepository *Repository;
 
-   string ReleaseFile(string Type) const;
-   string ReleaseURI(string Type) const;
-   string ReleaseInfo(string Type) const;
+    string ReleaseFile(string Type) const;
+    string ReleaseURI(string Type) const;
+    string ReleaseInfo(string Type) const;
 
-   string Info(string Type) const;
-   string IndexFile(string Type) const;
-   string IndexURI(string Type) const;
+    string Info(string Type) const;
+    string IndexFile(string Type) const;
+    string IndexURI(string Type) const;
 
-   string AutoType(string Type) const;
-   bool HasDBExtension() const;
+    string AutoType(string Type) const;
+    bool HasDBExtension() const;
 
-   virtual string MainType() const = 0;
-   virtual string IndexPath() const;
-   virtual string ReleasePath() const;
+    virtual string MainType() const = 0;
+    virtual string IndexPath() const;
+    virtual string ReleasePath() const;
 
-   public:
+  public:
+    // Creates a RPMHandler suitable for usage with this object
+    virtual RPMHandler *CreateHandler() const;
 
-   // Creates a RPMHandler suitable for usage with this object
-   virtual RPMHandler *CreateHandler() const;
+    virtual bool GetReleases(pkgAcquire *Owner) const;
 
-   virtual bool GetReleases(pkgAcquire *Owner) const;
+    // Interface for the Cache Generator
+    virtual bool Exists() const;
 
-   // Interface for the Cache Generator
-   virtual bool Exists() const;
+    // Interface for acquire
+    virtual string Describe(bool Short) const;
+    virtual bool GetIndexes(pkgAcquire *Owner) const;
 
-   // Interface for acquire
-   virtual string Describe(bool Short) const;
-   virtual bool GetIndexes(pkgAcquire *Owner) const;
+    virtual string ArchiveInfo(pkgCache::VerIterator Ver) const;
+    virtual string ArchiveURI(string File) const;
 
-   virtual string ArchiveInfo(pkgCache::VerIterator Ver) const;
-   virtual string ArchiveURI(string File) const;
+    virtual bool Merge(pkgCacheGenerator &Gen, OpProgress &Prog) const;
+    virtual bool MergeFileProvides(pkgCacheGenerator & /*Gen*/,
+        OpProgress & /*Prog*/) const;
+    virtual pkgCache::PkgFileIterator FindInCache(pkgCache &Cache) const;
 
-   virtual bool Merge(pkgCacheGenerator &Gen,OpProgress &Prog) const;
-   virtual bool MergeFileProvides(pkgCacheGenerator &/*Gen*/,
-		   		  OpProgress &/*Prog*/) const;
-   virtual pkgCache::PkgFileIterator FindInCache(pkgCache &Cache) const;
+    // Interface for the source record parsers - repomd can have both binary
+    // and source packages in the same repository!
+    virtual pkgSrcRecords::Parser *CreateSrcParser() const;
 
-   // Interface for the source record parsers - repomd can have both binary
-   // and source packages in the same repository!
-   virtual pkgSrcRecords::Parser *CreateSrcParser() const;
-
-   rpmRepomdIndex(string URI,string Dist,string Section,
-               pkgRepository *Repository);
-
+    rpmRepomdIndex(string URI, string Dist, string Section,
+        pkgRepository *Repository);
 };
 
-class rpmRepomdPkgIndex : public rpmRepomdIndex
-{
-   protected:
+class rpmRepomdPkgIndex : public rpmRepomdIndex {
+  protected:
+    virtual string MainType() const {
+        return "repomd";
+    }
 
-   virtual string MainType() const {return "repomd";}
+  public:
+    virtual bool HasPackages() const {
+        return true;
+    }
+    virtual const Type *GetType() const;
 
-   public:
-
-   virtual bool HasPackages() const {return true;}
-   virtual const Type *GetType() const;
-
-
-   rpmRepomdPkgIndex(string URI,string Dist,string Section,
-                     pkgRepository *Repository) :
-          rpmRepomdIndex(URI,Dist,Section,Repository) {}
-
+    rpmRepomdPkgIndex(string URI, string Dist, string Section,
+        pkgRepository *Repository) : rpmRepomdIndex(URI, Dist, Section, Repository) {
+    }
 };
 
-class rpmRepomdSrcIndex : public rpmRepomdIndex
-{
-   protected:
+class rpmRepomdSrcIndex : public rpmRepomdIndex {
+  protected:
+    virtual string MainType() const {
+        return "repomd-src";
+    }
 
-   virtual string MainType() const {return "repomd-src";}
+  public:
+    virtual const Type *GetType() const;
 
-   public:
+    // Stuff for accessing files on remote items
+    virtual string SourceInfo(pkgSrcRecords::Parser const &Record,
+        pkgSrcRecords::File const &File) const;
 
-   virtual const Type *GetType() const;
-
-   // Stuff for accessing files on remote items
-   virtual string SourceInfo(pkgSrcRecords::Parser const &Record,
-			     pkgSrcRecords::File const &File) const;
-
-   rpmRepomdSrcIndex(string URI,string Dist,string Section,
-                     pkgRepository *Repository) :
-          rpmRepomdIndex(URI,Dist,Section,Repository) {}
-
+    rpmRepomdSrcIndex(string URI, string Dist, string Section,
+        pkgRepository *Repository) : rpmRepomdIndex(URI, Dist, Section, Repository) {
+    }
 };
 
 #endif /* APT_WITH_REPOMD */

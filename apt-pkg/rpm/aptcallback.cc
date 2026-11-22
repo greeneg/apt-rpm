@@ -10,22 +10,21 @@
 #include <iostream>
 using namespace std;
 
-static const char *copyTags[] = {"name", 
-			   "version", 
-			   "release", 
-			   "arch", 
-			   "summary", 
-			   NULL};
+static const char *copyTags[] = {"name",
+    "version",
+    "release",
+    "arch",
+    "summary",
+    NULL};
 
-static void getPackageData(const Header h, map<string,string> &Data)
-{
-   raptHeader hdr(h);
-   Data.clear();
-   for (const char **Tag = copyTags; *Tag != NULL; Tag++) {
-      ostringstream fmt;
-      fmt << "%{" << *Tag << "}";
-      Data[*Tag] = hdr.format(fmt.str());
-   }
+static void getPackageData(const Header h, map<string, string> &Data) {
+    raptHeader hdr(h);
+    Data.clear();
+    for (const char **Tag = copyTags; *Tag != NULL; Tag++) {
+        ostringstream fmt;
+        fmt << "%{" << *Tag << "}";
+        Data[*Tag] = hdr.format(fmt.str());
+    }
 }
 
 /* TODO: test number of arguments in configure instead */
@@ -37,96 +36,98 @@ static void getPackageData(const Header h, map<string,string> &Data)
 #define FDFREE(_fd) fdFree((_fd), "")
 #endif
 
-void * rpmCallback(const void * arg, 
-		   rpmCallbackType what,
-		   rpm_loff_t amount, rpm_loff_t total,
-		   const void * pkgKey, void * data)
+void *rpmCallback(const void *arg,
+    rpmCallbackType what,
+    rpm_loff_t amount, rpm_loff_t total,
+    const void *pkgKey, void *data)
 
 {
-   Header h = (Header) arg;
+    Header h = (Header) arg;
 
-   InstProgress *Prog = (InstProgress*)data;
-   void * rc = NULL;
-   const char * filename = (const char *) pkgKey;
-   static FD_t fd = NULL;
-   static rpmCallbackType state;
-   static map<string,string> Data;
+    InstProgress *Prog = (InstProgress *) data;
+    void *rc = NULL;
+    const char *filename = (const char *) pkgKey;
+    static FD_t fd = NULL;
+    static rpmCallbackType state;
+    static map<string, string> Data;
 
-   switch (what) {
-   case RPMCALLBACK_INST_OPEN_FILE:
-      if (filename == NULL || filename[0] == '\0')
-	 return NULL;
-      fd = Fopen(filename, "r.ufdio");
-      if (fd)
-	 fd = FDLINK(fd);
-      return fd;
-      break;
+    switch (what) {
+        case RPMCALLBACK_INST_OPEN_FILE:
+            if (filename == NULL || filename[0] == '\0') {
+                return NULL;
+            }
+            fd = Fopen(filename, "r.ufdio");
+            if (fd) {
+                fd = FDLINK(fd);
+            }
+            return fd;
+            break;
 
-   case RPMCALLBACK_INST_CLOSE_FILE:
-      fd = FDFREE(fd);
-      if (fd) {
-	 (void) Fclose(fd);
-	 fd = NULL;
-      }
-      break;
+        case RPMCALLBACK_INST_CLOSE_FILE:
+            fd = FDFREE(fd);
+            if (fd) {
+                (void) Fclose(fd);
+                fd = NULL;
+            }
+            break;
 
-   case RPMCALLBACK_INST_START:
-      if (state != what) {
-	 state = what;
-	 Prog->OverallProgress(0,1,1, "Updating / installing");
-	 Prog->SetState(InstProgress::Installing);
-      }
+        case RPMCALLBACK_INST_START:
+            if (state != what) {
+                state = what;
+                Prog->OverallProgress(0, 1, 1, "Updating / installing");
+                Prog->SetState(InstProgress::Installing);
+            }
 
-      getPackageData(h, Data);
-      Prog->SubProgress(total, Data["name"]);
-      Prog->Progress(amount);
-      break;
+            getPackageData(h, Data);
+            Prog->SubProgress(total, Data["name"]);
+            Prog->Progress(amount);
+            break;
 
-   case RPMCALLBACK_TRANS_PROGRESS:
-   case RPMCALLBACK_INST_PROGRESS:
-      Prog->Progress(amount);
-      break;
+        case RPMCALLBACK_TRANS_PROGRESS:
+        case RPMCALLBACK_INST_PROGRESS:
+            Prog->Progress(amount);
+            break;
 
-   case RPMCALLBACK_TRANS_START:
-      state = what;
-      Prog->SetState(InstProgress::Preparing);
-      Prog->SubProgress(total, "Preparing");
-      Prog->Progress(0);
-      Prog->SetPackageData(&Data);
-   break;
+        case RPMCALLBACK_TRANS_START:
+            state = what;
+            Prog->SetState(InstProgress::Preparing);
+            Prog->SubProgress(total, "Preparing");
+            Prog->Progress(0);
+            Prog->SetPackageData(&Data);
+            break;
 
-   case RPMCALLBACK_TRANS_STOP:
-      Prog->Progress(total);
-      break;
+        case RPMCALLBACK_TRANS_STOP:
+            Prog->Progress(total);
+            break;
 
-   case RPMCALLBACK_UNINST_PROGRESS:
-      break;
+        case RPMCALLBACK_UNINST_PROGRESS:
+            break;
 
-   case RPMCALLBACK_UNINST_START:
-      if (state != what) {
-	 state = what;
-	 Prog->OverallProgress(0,1,1, "Cleaning up / removing");
-	 Prog->SetState(InstProgress::Removing);
-      }
-      if (h == NULL) {
-	 break;
-      }
-      getPackageData(h, Data);
-      Prog->SubProgress(100, Data["name"]);
-      Prog->Progress(0);
-      break;
+        case RPMCALLBACK_UNINST_START:
+            if (state != what) {
+                state = what;
+                Prog->OverallProgress(0, 1, 1, "Cleaning up / removing");
+                Prog->SetState(InstProgress::Removing);
+            }
+            if (h == NULL) {
+                break;
+            }
+            getPackageData(h, Data);
+            Prog->SubProgress(100, Data["name"]);
+            Prog->Progress(0);
+            break;
 
-   case RPMCALLBACK_UNINST_STOP:
-      Prog->Progress(100);
-      if (h == NULL)
-	 break;
-      getPackageData(h, Data);
-      break;
-   default: // Fall through
-      break;
- 
-   }
-   return rc;
-}	
+        case RPMCALLBACK_UNINST_STOP:
+            Prog->Progress(100);
+            if (h == NULL) {
+                break;
+            }
+            getPackageData(h, Data);
+            break;
+        default: // Fall through
+            break;
+    }
+    return rc;
+}
 
-// vim:sts=3:sw=3
+// vim:ts=4:sw=4:et

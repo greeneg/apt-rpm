@@ -32,34 +32,31 @@
  *
  */
 
-#ifndef	__CACHED_MD5_H__
-#define	__CACHED_MD5_H__
+#ifndef __CACHED_MD5_H__
+#define __CACHED_MD5_H__
 
 #include <sys/types.h>
 #include <string>
 #include <map>
 
-using std::string;
 using std::map;
+using std::string;
 
-class CachedMD5
-{
-   string CacheFileName;
-   struct FileData
-   {
-      string MD5;
-      time_t TimeStamp;
-   };
-   map<string, FileData> MD5Table;
+class CachedMD5 {
+    string CacheFileName;
+    struct FileData {
+        string MD5;
+        time_t TimeStamp;
+    };
+    map<string, FileData> MD5Table;
 
-   public:
+  public:
+    void MD5ForFile(string FileName, time_t TimeStamp, char *buf);
 
-   void MD5ForFile(string FileName, time_t TimeStamp, char *buf);
-
-   CachedMD5(string DirName, string Domain);
-   ~CachedMD5();
+    CachedMD5(string DirName, string Domain);
+    ~CachedMD5();
 };
 
-#endif	/* __CACHED_MD5_H__ */
+#endif /* __CACHED_MD5_H__ */
 
-// vim:sts=3:sw=3
+// vim:ts=4:sw=4:et

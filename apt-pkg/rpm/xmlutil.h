@@ -10,12 +10,12 @@
 
 using std::string;
 
-xmlNode *XmlFindNode(xmlNode *Node, const string & Name);
-string XmlFindNodeContent(xmlNode *Node, const string & Name);
+xmlNode *XmlFindNode(xmlNode *Node, const string &Name);
+string XmlFindNodeContent(xmlNode *Node, const string &Name);
 string XmlGetContent(xmlNode *Node);
-string XmlGetProp(xmlNode *Node, const string & Prop);
+string XmlGetProp(xmlNode *Node, const string &Prop);
 #endif
 
 #endif
 
-// vim:sts=3:sw=3
+// vim:ts=4:sw=4:et

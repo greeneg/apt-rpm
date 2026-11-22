@@ -6,7 +6,7 @@
    RSH method - Transfer files via rsh compatible program
 
    ##################################################################### */
-									/*}}}*/
+/*}}}*/
 #ifndef APT_RSH_H
 #define APT_RSH_H
 
@@ -16,55 +16,53 @@
 #include <apt-pkg/acquire-method.h>
 #include <apt-pkg/fileutl.h>
 
-class RSHConn
-{
-   char Buffer[1024*10];
-   unsigned long Len;
-   int WriteFd;
-   int ReadFd;
-   URI ServerName;
+class RSHConn {
+    char Buffer[1024 * 10];
+    unsigned long Len;
+    int WriteFd;
+    int ReadFd;
+    URI ServerName;
 
-   // Private helper functions
-   bool ReadLine(string &Text);
+    // Private helper functions
+    bool ReadLine(string &Text);
 
-   public:
+  public:
+    int Process;
 
-   int Process;
+    // Raw connection IO
+    bool WriteMsg(string &Text, bool Sync, const char *Fmt, ...);
+    bool Connect(string Host, string User);
+    bool Comp(URI Other) {
+        return Other.Host == ServerName.Host && Other.Port == ServerName.Port;
+    }
 
-   // Raw connection IO
-   bool WriteMsg(string &Text,bool Sync,const char *Fmt,...);
-   bool Connect(string Host, string User);
-   bool Comp(URI Other) {return Other.Host == ServerName.Host && Other.Port == ServerName.Port;}
+    // Connection control
+    bool Open();
+    void Close();
 
-   // Connection control
-   bool Open();
-   void Close();
+    // Query
+    bool Size(const char *Path, size_t &Size);
+    bool ModTime(const char *Path, time_t &Time);
+    bool Get(const char *Path, FileFd &To, unsigned long Resume,
+        Hashes &Hash, bool &Missing, unsigned long Size);
 
-   // Query
-   bool Size(const char *Path,size_t &Size);
-   bool ModTime(const char *Path, time_t &Time);
-   bool Get(const char *Path,FileFd &To,unsigned long Resume,
-            Hashes &Hash,bool &Missing, unsigned long Size);
-
-   RSHConn(URI Srv);
-   ~RSHConn();
+    RSHConn(URI Srv);
+    ~RSHConn();
 };
 
-class RSHMethod : public pkgAcqMethod
-{
-   virtual bool Fetch(FetchItem *Itm);
-   virtual bool Configuration(string Message);
+class RSHMethod : public pkgAcqMethod {
+    virtual bool Fetch(FetchItem *Itm);
+    virtual bool Configuration(string Message);
 
-   RSHConn *Server;
+    RSHConn *Server;
 
-   static string FailFile;
-   static int FailFd;
-   static time_t FailTime;
-   static void SigTerm(int);
+    static string FailFile;
+    static int FailFd;
+    static time_t FailTime;
+    static void SigTerm(int);
 
-   public:
-
-   RSHMethod();
+  public:
+    RSHMethod();
 };
 
 #endif

@@ -4,9 +4,9 @@
 /* ######################################################################
 
    CDROM Utilities - Some functions to manipulate CDROM mounts.
-   
+
    ##################################################################### */
-									/*}}}*/
+/*}}}*/
 #ifndef PKGLIB_CDROMUTL_H
 #define PKGLIB_ACQUIRE_METHOD_H
 
@@ -16,6 +16,6 @@ using std::string;
 
 bool MountCdrom(string Path);
 bool UnmountCdrom(string Path);
-bool IdentCdrom(string CD,string &Res,unsigned int Version = 2);
+bool IdentCdrom(string CD, string &Res, unsigned int Version = 2);
 
 #endif

@@ -6,12 +6,11 @@
 
 using namespace std;
 
-int main(int argc,char *argv[])
-{
-   pkgInitConfig(*_config);
-   pkgInitSystem(*_config,_system);
+int main(int argc, char *argv[]) {
+    pkgInitConfig(*_config);
+    pkgInitSystem(*_config, _system);
 
-   // do something... 
+    // do something...
 
-   _error->DumpErrors();
+    _error->DumpErrors();
 }
