@@ -625,22 +625,30 @@ string RPMDBHandler::DataPath(bool DirectoryOnly)
 
    // The on-disk file backing the rpmdb depends on the configured
    // db backend (rpm >= 4.16 defaults to ndb/sqlite instead of the
-   // legacy bdb "Packages" file); probe for whichever exists so our
-   // IMS mtime/size bookkeeping stats a real file.
-   static const char *const Candidates[] = {
-      "Packages.db",   // ndb
-      "rpmdb.sqlite",  // sqlite
-      "Packages",      // bdb (legacy default)
-      NULL
-   };
-   for (const char *const *C = Candidates; *C != NULL; C++) {
-      string Path = DBPath + "/" + *C;
-      struct stat St;
-      if (stat(Path.c_str(), &St) == 0)
-	 return Path;
-   }
-   // Nothing recognized exists yet; fall back to the directory
-   // itself so stat() still succeeds.
+   // legacy bdb "Packages" file). Resolve the backend librpm is
+   // actually configured to use instead of guessing by filename
+   // priority: a leftover file from a previously used backend would
+   // otherwise be picked over the active one, serving IMS mtime/size
+   // checks from a stale file while the real db keeps changing.
+   char *backend = (char *) rpmExpand("%{?_db_backend}", NULL);
+   string Backend(backend ? backend : "");
+   free(backend);
+
+   const char *File;
+   if (Backend == "sqlite")
+      File = "rpmdb.sqlite";
+   else if (Backend == "bdb")
+      File = "Packages";
+   else		// "ndb", or unset (rpm's compiled-in default is ndb)
+      File = "Packages.db";
+
+   string Path = DBPath + "/" + File;
+   struct stat St;
+   if (stat(Path.c_str(), &St) == 0)
+      return Path;
+
+   // Nothing there yet (e.g. a brand-new, empty root); fall back to
+   // the directory itself so stat() still succeeds.
    return DBPath;
 }
 
