@@ -6,7 +6,7 @@ dnl Check the archs, we want the target type.
 AC_CONFIG_AUX_DIR([buildlib])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CANONICAL_HOST
-AC_CONFIG_SRCDIR([AUTHORS.RPM])
+AC_CONFIG_SRCDIR([AUTHORS])
 AM_INIT_AUTOMAKE([foreign subdir-objects dist-bzip2 1.9.5])
 
 AC_CONFIG_HEADER([include/config.h:buildlib/config.h.in])

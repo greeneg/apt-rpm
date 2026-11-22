@@ -1,0 +1,37 @@
+This directory bundles third-party Lua extension libraries that are
+licensed under the MIT License, rather than the GPL that covers the
+rest of apt-rpm:
+
+  lposix.c, lposix.h, linit.h, modemuncher.c, userconfig.c
+    POSIX library for Lua.
+    Copyright (C) 1994-2012 Lua.org, PUC-Rio.
+    Based on the original by Claudio Terra for Lua 3.x.
+    Luiz Henrique de Figueiredo <lhf@tecgraf.puc-rio.br>
+
+  lrexlib.c, lrexlib.h
+    POSIX & PCRE regular expression library for Lua.
+    Copyright (C) Reuben Thomas 2000-2004.
+
+  luacompat.h
+    Copyright (C) apt-rpm contributors.
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

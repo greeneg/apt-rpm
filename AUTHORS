@@ -1,3 +1,30 @@
+RPM port maintainers and contributors:
+
+Versions newer than 0.5.x-lorg of APT-RPM maintained by Gary L. Greene Jr. <greeneg@tolharadys.net>
+
+0.5.x-lorg version maintained by Panu Matilainen <pmatilai@laiskiainen.org>
+
+0.5 RPM port brought to you by
+Gustavo Niemeyer <niemeyer@conectiva.com>
+Alfredo K. Kojima <kojima@conectiva.com.br>
+
+0.3 RPM port brought to you by 
+Alfredo K. Kojima <kojima@conectiva.com.br>
+
+with consulting help from:
+Packaging: Ruda Moura <ruda@conectiva.com.br>
+Security: Andreas Hasenack <andreas@conectiva.com.br>
+Misc.: Claudio Matsuoka <claudio@conectiva.com.br>
+
+added user specified public keyring option for gpg, fixed a bug
+in the file method with authentication 
+	Alexander Bokovoy <ab@avilink.net>
+
+solaris portability fixes
+	AUSTIN MURPHY <amurphy@nbcs.rutgers.edu>
+
+Original (Debian) APT project hierarchy and contributors:
+
 The project hierachy stands at:
 
 CVS:jgg Jason Gunthorpe <jgg@debian.org>

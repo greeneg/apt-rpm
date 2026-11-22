@@ -8,8 +8,6 @@ SUBDIRS += test
 ACLOCAL_AMFLAGS = -I m4 -I buildlib
 
 EXTRA_DIST = \
-		AUTHORS.RPM \
-		COPYING.GPL \
 		ChangeLog \
 		etc/rpmpriorities \
 		python/apt.i \
