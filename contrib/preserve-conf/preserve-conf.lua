@@ -3,14 +3,17 @@ if confget("RPM::Preserve-Config/b", "false") == "true" then
 	pkgs = pkglist()
 	for i, pkg in ipairs(pkgs) do
 		if statinstall(pkg) then
-			inp = io.popen("LANG=C /bin/rpm -V --nodeps --nodigest --noscripts --nosignature "..pkgname(pkg).." 2> /dev/null")
-			for line in inp.lines(inp) do
-				if string.byte(line, 10) == string.byte("c") then
-					num = num + 1
-					markkeep(pkg)
-				end
+			local changed, err = apt.configchanged(pkgname(pkg))
+			if changed == nil then
+				-- Could not verify (e.g. failed to enter
+				-- RPM::RootDir); fail closed and hold back.
+				aptwarning(_("Could not verify configuration for "..pkgname(pkg)..": "..(err or "unknown error")))
+				changed = true
 			end
-			io.close(inp)
+			if changed then
+				num = num + 1
+				markkeep(pkg)
+			end
 		end
 	end
 	if num > 0 then

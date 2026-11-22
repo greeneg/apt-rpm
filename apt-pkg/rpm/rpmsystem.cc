@@ -38,7 +38,6 @@
 #include <assert.h>
 #include <time.h>
 									/*}}}*/
-extern int _rpmds_nopromote;
 
 rpmSystem rpmSys;
 
@@ -161,7 +160,6 @@ bool rpmSystem::Initialize(Configuration &Cnf)
       }
       Opt++;
    }
-   _rpmds_nopromote = NoPromote;
    HideZeroEpoch = (NoPromote == 1);
 
    return true;

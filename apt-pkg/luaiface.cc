@@ -38,7 +38,17 @@ extern "C" {
 #include <limits.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <fcntl.h>
 #include <assert.h>
+
+#include <rpm/rpmlib.h>
+#include <rpm/rpmts.h>
+#include <rpm/rpmio.h>
+#include <rpm/rpmdb.h>
+#include <rpm/rpmfi.h>
+#include <rpm/rpmfiles.h>
+#include <rpm/rpmcli.h>
+#include <sys/stat.h>
 
 using namespace std;
 
@@ -1206,6 +1216,149 @@ static int AptLua_verchangeloglist(lua_State *L)
    return 1;
 }
 
+// AptLua_pkgchecksig - Verify a package file's digest/signature	/*{{{*/
+// ---------------------------------------------------------------------
+/* Native replacement for shelling out to "rpm --checksig": reads the
+   package header through librpm's own verification path and reports
+   the result as one of "ok", "nottrusted", "nokey" or "fail". */
+static int AptLua_pkgchecksig(lua_State *L)
+{
+   const char *Path = luaL_checkstring(L, 1);
+   if (Path == NULL)
+      return 0;
+
+   rpmts TS = rpmtsCreate();
+   rpmtsSetRootDir(TS, _config->Find("RPM::RootDir", "/").c_str());
+   // apt.checksig must always require a verified signature, not just
+   // a digest. rpmtsCreate() caches the ts's verify level from the
+   // configured %_pkgverify_level ("digest"/"none" would silently let
+   // an unsigned package pass), so override it directly here rather
+   // than relying on that global, overridable setting.
+   rpmtsSetVfyLevel(TS, RPMSIG_SIGNATURE_TYPE | RPMSIG_DIGEST_TYPE);
+
+   FD_t fd = Fopen(Path, "r.ufdio");
+   if (fd == NULL) {
+      rpmtsFree(TS);
+      lua_pushnil(L);
+      lua_pushstring(L, _("could not open package file"));
+      return 2;
+   }
+
+   Header hdr = NULL;
+   rpmRC rc = rpmReadPackageFile(TS, fd, Path, &hdr);
+   if (hdr != NULL)
+      headerFree(hdr);
+
+   const char *Status;
+   if (rc != RPMRC_OK && rc != RPMRC_NOTTRUSTED && rc != RPMRC_NOKEY) {
+      Status = "fail";
+   } else {
+      // rpmReadPackageFile only verifies the header; a signed header
+      // with a corrupted payload would otherwise report "ok". Rewind
+      // and run the same full header+payload check "rpm --checksig"
+      // does before trusting the result. rpmQVKArgs is rpm's own
+      // default query/verify args; a NULL qva here makes
+      // rpmVerifySignatures misbehave and report false failures.
+      Fseek(fd, 0, SEEK_SET);
+      if (rpmVerifySignatures(&rpmQVKArgs, TS, fd, Path) != 0)
+	 Status = "fail";
+      else if (rc == RPMRC_NOTTRUSTED)
+	 Status = "nottrusted";
+      else if (rc == RPMRC_NOKEY)
+	 Status = "nokey";
+      else
+	 Status = "ok";
+   }
+
+   Fclose(fd);
+   rpmtsFree(TS);
+
+   lua_pushstring(L, Status);
+   return 1;
+}
+									/*}}}*/
+// AptLua_pkgconfigchanged - Has an installed %config file been edited?/*{{{*/
+// ---------------------------------------------------------------------
+/* Native replacement for shelling out to
+   "rpm -V --nodeps --nodigest --noscripts --nosignature <pkg>" and
+   grepping for the 'c' (config file) marker: uses librpm's own
+   per-file verification (size, mode, mtime, link target, owner,
+   group, rdev, caps - respecting each file's recorded verify flags),
+   omitting only the content digest to mirror --nodigest. */
+static int AptLua_pkgconfigchanged(lua_State *L)
+{
+   const char *Name = luaL_checkstring(L, 1);
+   if (Name == NULL)
+      return 0;
+
+   string RootDir = _config->Find("RPM::RootDir", "/");
+
+   rpmts TS = rpmtsCreate();
+   rpmtsSetRootDir(TS, RootDir.c_str());
+   // Resolve the rpmdb's own path before chrooting below; it must not
+   // be re-opened once RootDir is also "/" from the process's view.
+   // If this fails, the match iterator below would silently yield no
+   // headers and we'd wrongly report "unchanged" - fail closed.
+   if (rpmtsOpenDB(TS, O_RDONLY) != 0) {
+      rpmtsFree(TS);
+      lua_pushnil(L);
+      lua_pushstring(L, _("could not open RPM database to verify configuration files"));
+      return 2;
+   }
+
+   // rpmfiVerify() lstat()s each file by its package-relative path
+   // as-is, so for an alternate root we must actually chroot(2) for
+   // the duration of the check, like "rpm -V" itself does. If we
+   // can't enter it, fail closed instead of silently verifying
+   // against the host root and possibly reporting "unchanged".
+   int RootFd = -1;
+   bool Chrooted = false;
+   if (RootDir != "/") {
+      RootFd = open("/", O_RDONLY | O_DIRECTORY);
+      if (RootFd >= 0 && chroot(RootDir.c_str()) == 0) {
+	 chdir("/");
+	 Chrooted = true;
+      } else {
+	 if (RootFd >= 0)
+	    close(RootFd);
+	 rpmtsFree(TS);
+	 lua_pushnil(L);
+	 lua_pushstring(L, _("could not enter RPM::RootDir to verify configuration files"));
+	 return 2;
+      }
+   }
+
+   rpmdbMatchIterator MI = rpmtsInitIterator(TS, RPMDBI_LABEL, Name, 0);
+   Header hdr;
+   bool Changed = false;
+   while (!Changed && (hdr = rpmdbNextIterator(MI)) != NULL) {
+      rpmfi fi = rpmfiNew(TS, hdr, RPMTAG_BASENAMES, RPMFI_FLAGS_VERIFY);
+      if (fi == NULL)
+	 continue;
+      while (!Changed && rpmfiNext(fi) >= 0) {
+	 if ((rpmfiFFlags(fi) & RPMFILE_CONFIG) == 0)
+	    continue;
+	 if (rpmfiVerify(fi, RPMVERIFY_FILEDIGEST) != RPMVERIFY_NONE)
+	    Changed = true;
+      }
+      rpmfiFree(fi);
+   }
+   rpmdbFreeIterator(MI);
+
+   if (Chrooted) {
+      fchdir(RootFd);
+      chroot(".");
+      chdir("/");
+   }
+   if (RootFd >= 0)
+      close(RootFd);
+
+   rpmtsFree(TS);
+
+   lua_pushboolean(L, Changed ? 1 : 0);
+   return 1;
+}
+									/*}}}*/
 static int AptLua_verstrcmp(lua_State *L)
 {
    const char *Ver1, *Ver2;
@@ -1517,6 +1670,8 @@ static const luaL_Reg aptlib[] = {
    {"verfilelist",   	AptLua_verfilelist},
    {"verchangeloglist", AptLua_verchangeloglist},
    {"verstrcmp",	AptLua_verstrcmp},
+   {"checksig",		AptLua_pkgchecksig},
+   {"configchanged",	AptLua_pkgconfigchanged},
    {"markkeep",		AptLua_markkeep},
    {"markinstall",	AptLua_markinstall},
    {"markreinstall",	AptLua_markreinstall},

@@ -49,7 +49,6 @@
 #include <rpm/rpmts.h>
 #include <rpm/rpmdb.h>
 #include <rpm/rpmds.h>
-#include <rpm/rpmsq.h>
 
 using namespace std;
 
@@ -599,22 +598,12 @@ RPMDBHandler::~RPMDBHandler()
    if (RpmIter != NULL)
       rpmdbFreeIterator(RpmIter);
 
-   /* 
-    * If termination signal, do nothing as rpmdb has already freed
-    * our ts set behind our back and rpmtsFree() will crash and burn with a 
-    * doublefree within rpmlib.
-    * There's a WTF involved as rpmCheckSignals() actually calls exit()
-    * so we shouldn't even get here really?!
+   /*
+    * rpmsqIsCaught() and the signal-queue subsystem it belonged to
+    * were removed from librpm; rpmtsFree() is now always safe to call.
     */
-   if (rpmsqIsCaught(SIGINT) || 
-       rpmsqIsCaught(SIGQUIT) ||
-       rpmsqIsCaught(SIGHUP) ||
-       rpmsqIsCaught(SIGTERM) ||
-       rpmsqIsCaught(SIGPIPE)) {
-      /* do nothing */
-   } else if (Handler != NULL) {
+   if (Handler != NULL)
       rpmtsFree(Handler);
-   }
 
    // Restore just after opening the database, and just after closing.
    if (WriteLock) {
@@ -627,15 +616,44 @@ RPMDBHandler::~RPMDBHandler()
 
 string RPMDBHandler::DataPath(bool DirectoryOnly)
 {
-   string File = "Packages";
    char *tmp = (char *) rpmExpand("%{_dbpath}", NULL);
    string DBPath(_config->Find("RPM::RootDir")+tmp);
    free(tmp);
 
    if (DirectoryOnly == true)
        return DBPath;
-   else
-       return DBPath+"/"+File;
+
+   // The on-disk file backing the rpmdb depends on the configured
+   // db backend (rpm >= 4.16 defaults to ndb/sqlite instead of the
+   // legacy bdb "Packages" file). Resolve the backend librpm is
+   // actually configured to use instead of guessing by filename
+   // priority: a leftover file from a previously used backend would
+   // otherwise be picked over the active one, serving IMS mtime/size
+   // checks from a stale file while the real db keeps changing.
+   char *backend = (char *) rpmExpand("%{?_db_backend}", NULL);
+   string Backend(backend ? backend : "");
+   free(backend);
+
+   const char *File = NULL;
+   if (Backend.empty() || Backend == "ndb")
+      File = "Packages.db";
+   else if (Backend == "bdb" || Backend == "bdb_ro")
+      File = "Packages";
+   else if (Backend == "sqlite")
+      File = "rpmdb.sqlite";
+   // else: unsupported/unrecognized backend (e.g. "dummy") - don't
+   // assume a file, fall through to the directory stat below.
+
+   if (File != NULL) {
+      string Path = DBPath + "/" + File;
+      struct stat St;
+      if (stat(Path.c_str(), &St) == 0)
+	 return Path;
+   }
+
+   // Nothing there yet (e.g. a brand-new, empty root); fall back to
+   // the directory itself so stat() still succeeds.
+   return DBPath;
 }
 
 bool RPMDBHandler::Skip()
