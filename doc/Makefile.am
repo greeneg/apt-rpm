@@ -11,12 +11,12 @@ dist_man_MANS += vendors.list.5
 EXTRA_DIST = \
 		apt.ent \
 		style.txt \
-		cache.sgml \
-		files.sgml \
-		guide.sgml \
-		offline.sgml \
-		design.sgml \
-		method.sgml \
+		cache.md \
+		files.md \
+		guide.md \
+		offline.md \
+		design.md \
+		method.md \
 		examples/apt.conf \
 		examples/configure-index \
 		examples/sources.list

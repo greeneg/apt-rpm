@@ -20,7 +20,7 @@
 
    Cache - Structure definitions for the cache file
 
-   Please see doc/apt-pkg/cache.sgml for a more detailed description of
+   Please see doc/cache.md for a more detailed description of
    this format. Also be sure to keep that file up-to-date!!
 
    Clients should always use the CacheIterators classes for access to the

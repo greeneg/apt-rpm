@@ -110,10 +110,10 @@ Man pages and longer-form guides live in `doc/`:
   command man pages.
 * `apt.conf.5`, `sources.list.5`, `apt_preferences.5`, `vendors.list.5` -
   configuration file man pages.
-* `guide.sgml` - the APT User's Guide.
-* `design.sgml`, `cache.sgml`, `files.sgml`, `method.sgml` - internal
+* `guide.md` - the APT User's Guide.
+* `design.md`, `cache.md`, `files.md`, `method.md` - internal
   design/architecture notes.
-* `offline.sgml` - using APT to manage packages on an offline system.
+* `offline.md` - using APT to manage packages on an offline system.
 
 ## License
 
