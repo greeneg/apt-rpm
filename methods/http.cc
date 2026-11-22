@@ -368,6 +368,15 @@ bool ServerState::ConnectSSL() {
 
     SSL_set_fd(Ssl, ServerFd);
     SSL_set_tlsext_host_name(Ssl, ServerName.Host.c_str());
+    if (_config->FindB("Acquire::https::Verify-Peer", true) == true) {
+        X509_VERIFY_PARAM *Param = SSL_get0_param(Ssl);
+        if (X509_VERIFY_PARAM_set1_ip_asc(Param, ServerName.Host.c_str()) != 1 &&
+            SSL_set1_host(Ssl, ServerName.Host.c_str()) != 1) {
+            SSL_free(Ssl);
+            Ssl = NULL;
+            return _error->Error(_("Unable to configure TLS certificate identity verification for %s"), ServerName.Host.c_str());
+        }
+    }
 
     while (1) {
         int Res = SSL_connect(Ssl);
