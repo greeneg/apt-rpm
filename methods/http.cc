@@ -110,6 +110,7 @@ void CircleBuf::Reset() {
 #ifdef WITH_SSL
     SslWantRead = false;
     SslWantWrite = false;
+    SslWriteLength = 0;
 #endif
 }
 /*}}}*/
@@ -231,7 +232,10 @@ bool CircleBuf::Write(int Fd) {
         int Res;
 #ifdef WITH_SSL
         if (Ssl != NULL) {
-            Res = SSL_write(Ssl, Buf + (OutP % Size), LeftWrite());
+            if (SslWriteLength == 0) {
+                SslWriteLength = LeftWrite();
+            }
+            Res = SSL_write(Ssl, Buf + (OutP % Size), SslWriteLength);
             if (Res <= 0) {
                 int Err = SSL_get_error(Ssl, Res);
                 SslWantRead = (Err == SSL_ERROR_WANT_READ);
@@ -239,10 +243,12 @@ bool CircleBuf::Write(int Fd) {
                 if (SslWantRead == true || SslWantWrite == true) {
                     return true;
                 }
+                SslWriteLength = 0;
                 return false;
             }
             SslWantRead = false;
             SslWantWrite = false;
+            SslWriteLength = 0;
         } else
 #endif
         {

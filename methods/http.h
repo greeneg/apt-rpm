@@ -77,6 +77,7 @@ class CircleBuf {
     // the right fd_set so the pending op is retried on the right event.
     bool SslWantRead;
     bool SslWantWrite;
+    int SslWriteLength;
 #endif
 
     // Read data in
