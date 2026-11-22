@@ -39,29 +39,28 @@ dependencies for each version. Forward (normal) dependencies are those
 packages upon which the package in question depends; reverse dependencies
 are those packages that depend upon the package in question. Thus, forward
 dependencies must be satisfied for a package, but reverse dependencies need
-not be. For instance, \fBapt-cache showpkg libreadline2\fR would produce
+not be. For instance, \fBapt-cache showpkg readline\fR would produce
 output similar to the following:
 .IP
 .nf
-Package: libreadline2
-Versions: 2.1-12(/var/lib/apt/lists/foo_Packages),
+Package: readline
+Versions: 6.2-12(/var/lib/apt/lists/foo_Packages),
 Reverse Depends: 
-  libreadlineg2,libreadline2
-  libreadline2-altdev,libreadline2
+  bash,readline
+  readline-devel,readline
 Dependencies:
-2.1-12 - libc5 (2 5.4.0-0) ncurses3.0 (0 (null))
+6.2-12 - glibc (2 2.17-0) ncurses (0 (null))
 Provides:
-2.1-12 - 
+6.2-12 - 
 Reverse Provides: 
 .fi
 .IP
-Thus it may be seen that libreadline2, version 2.1-12, depends on libc5 and
-ncurses3.0 which must be installed for libreadline2 to work. In turn,
-libreadlineg2 and libreadline2-altdev depend on libreadline2. If
-libreadline2 is installed, libc5 and ncurses3.0 (and ldso) must also be
-installed; libreadlineg2 and libreadline2-altdev do not have to be
-installed. For the specific meaning of the remainder of the output it is
-best to consult the apt source code.
+Thus it may be seen that readline, version 6.2-12, depends on glibc and
+ncurses which must be installed for readline to work. In turn,
+bash and readline-devel depend on readline. If readline is installed,
+glibc and ncurses must also be installed; bash and readline-devel do not
+have to be installed. For the specific meaning of the remainder of the
+output it is best to consult the apt-rpm source code.
 
 .TP
 \fBstats\fR
@@ -81,22 +80,20 @@ packages fall into this category.
 \(bu
 Pure virtual packages is the number of packages that exist only as a virtual
 package name; that is, packages only "provide" the virtual package name, and
-no package actually uses the name. For instance, "mail-transport-agent" in
-the Debian GNU/Linux system is a pure virtual package; several packages
-provide "mail-transport-agent", but there is no package named
-"mail-transport-agent".
+no package actually uses the name. For instance, "mta" is commonly a pure
+virtual package; several packages provide "mta", but there is typically no
+package actually named "mta".
 .TP 0.2i
 \(bu
 Single virtual packages is the number of packages with only one package
-providing a particular virtual package. For example, in the Debian GNU/Linux
-system, "X11-text-viewer" is a virtual package, but only one package, xless,
-provides "X11-text-viewer".
+providing a particular virtual package. For example, "webserver" might be a
+virtual package provided by only one installed package.
 .TP 0.2i
 \(bu
 Mixed virtual packages is the number of packages that either provide a
 particular virtual package or have the virtual package name as the package
-name. For instance, in the Debian GNU/Linux system, "debconf" is both an
-actual package, and provided by the debconf-tiny package.
+name. For instance, a package named "java" might also be provided by
+several alternative JDK/JRE packages.
 .TP 0.2i
 \(bu
 Missing is the number of package names that were referenced in a dependency

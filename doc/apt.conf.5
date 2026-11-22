@@ -166,6 +166,25 @@ otherwise data corruption will occur. Hosts which require this are in
 violation of RFC 2068.
 
 .TP
+\fBhttps\fR
+HTTPS URIs, available when APT-RPM is built with OpenSSL support. The
+\fIhttp\fR settings above (\fIPipeline-Depth\fR, cache control, timeout,
+etc.) apply equally to \fIhttps\fR.
+.IP
+\fIAcquire::https::Verify-Peer\fR controls TLS peer certificate
+verification using the system trust store; it defaults to true and should
+only be disabled for testing.
+.IP
+\fIAcquire::https::Proxy\fR and \fIAcquire::https::Proxy::<host>\fR are the
+HTTPS equivalents of the \fIhttp::Proxy\fR settings described above, and
+are overridden by the "https_proxy" environment variable. These are
+intentionally separate from the \fIhttp::Proxy\fR settings so that HTTP
+and HTTPS requests can be routed through different proxies, or so that
+only one of the two is proxied. When a proxy is configured, the request is
+tunnelled to the origin server with the HTTP \fBCONNECT\fR method; the
+proxy never sees the decrypted traffic or the origin request.
+
+.TP
 \fBftp\fR
 FTP URIs.  \fIftp::Proxy\fR is the default proxy server to use. It is in the
 standard form of ftp://[[user][:pass]@]host[:port]/ and is overridden by the
@@ -275,13 +294,6 @@ This is a list of shell commands to run before invoking \fBrpm\fR(8). Like
 invoked in order using \fB/bin/sh\fR; should any fail APT will abort. APT
 will pass to the commands on standard input the filenames of all .rpm files
 it is going to install, one per line.
-.IP
-.\" debianism... is this even valid here? (vdanen)
-Version 2 of this protocol dumps more information, including the protocol
-version, the APT configuration space and the packages, files and versions
-being changed. Version 2 is enabled by setting
-\fIDPkg::Tools::Options::cmd::Version\fR to 2. \fIcmd\fR is a command given
-to \fIPre-Install-Pkgs\fR.
 
 .TP
 \fBRun-Directory\fR

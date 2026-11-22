@@ -1,8 +1,3 @@
-.\" There are a lot of Debianisms in this file that should probably
-.\" be removed, but I'm not sure what to use as the "default" RPM-based
-.\" reference distro (Fedora?  RH?  A distro that uses apt-rpm by
-.\" default? (vdanen)
-
 .TH "APT_PREFERENCES" 5 "14 Jun 2006" "APT-RPM" "apt_preferences"
 .SH NAME
 apt_preferences - Preference control file for APT
@@ -135,7 +130,8 @@ Pin-Priority: 999
 A note of caution: the keyword used here is "origin". This should not be
 confused with the Origin of a distribution as specified in a \fIRelease\fR
 file.  What follows the "Origin:" tag in a \fIRelease\fR file is not an
-Internet address but an author or vendor name, such as "Debian" or "Ximian".
+Internet address but an author or vendor name, such as "openSUSE" or
+"Packman".
 .IP
 The following record assigns a low priority to all package versions
 belonging to any distribution whose Archive name is "unstable".
@@ -234,7 +230,7 @@ that location.
 .LP
 The \fIPackages\fR file is normally found in the directory
 \fI.../dists/dist-name/component/arch\fR.  For example:
-\fI.../dists/stable/main/binary-i386/Packages\fR. It consists of a series of
+\fI.../dists/leap/oss/x86_64/Packages\fR. It consists of a series of
 multi-line records, one for each package available in that directory.  Only
 two lines in each record are relevant for setting APT priorities:
 .TP
@@ -247,8 +243,8 @@ this line gives the version number for the named package.
 \fBThe\fR \fIRelease\fR \fBFile\fR
 .LP
 The \fIRelease\fR file is normally found in the directory
-\fI.../dists/dist-name\fR.  For example: \fI.../dists/stable/Release\fR, or
-\fI.../dists/woody/Release\fR. It consists of a single multi-line record
+\fI.../dists/dist-name\fR.  For example: \fI.../dists/leap/Release\fR, or
+\fI.../dists/tumbleweed/Release\fR. It consists of a single multi-line record
 which applies to \fBall\fR of the packages in the directory tree below its
 parent.  Unlike the \fIPackages\fR file, nearly all of the lines in a
 \fIRelease\fR file are relevant for setting APT priorities:
@@ -266,7 +262,7 @@ Pin: release a=stable
 .TP
 \fBVersion:\fR
 this line names the release version.  For example, the packages in the tree
-might belong to Debian GNU/Linux release version 3.0.  Note that there is
+might belong to openSUSE Leap release version 15.6.  Note that there is
 normally no version number for the testing and unstable distributions
 because they have not been released yet.  Specifying this in the APT
 preferences file would require one of the following lines.
@@ -280,41 +276,43 @@ Pin: release 3.0
 \fBComponent:\fR
 this line names the licensing component associated with the packages in the
 directory tree of the \fIRelease\fR file. For example, the line "Component:
-main" specifies that all the packages in the directory tree are from the
-main component, which entails that they are licensed under terms listed in
-the Debian Free Software Guidelines.  Specifying this component in the APT
-preferences file would require the line:
+oss" specifies that all the packages in the directory tree are from the
+oss component, which entails that they are licensed under the
+distribution's open source packaging guidelines.  Specifying this component
+in the APT preferences file would require the line:
 .IP
 .nf
-Pin: release c=main
+Pin: release c=oss
 .fi
 .TP
 \fBOrigin:\fR
 this line names the originator of the packages in the directory tree of the
-\fIRelease\fR file.  Most commonly, this is Debian.  Specifying this origin
-in the APT preferences file would require the line:
+\fIRelease\fR file.  Most commonly, this is the distribution vendor, such as
+openSUSE.  Specifying this origin in the APT preferences file would require
+the line:
 .IP
 .nf
-Pin: release o=Debian
+Pin: release o=openSUSE
 .fi
 .TP
 \fBLabel:\fR
 this line names the label of the packages in the directory tree of the
-\fIRelease\fR file.  Most commonly, this is Debian.  Specifying this label
-in the APT preferences file would require the line:
+\fIRelease\fR file.  Most commonly, this is the distribution name, such as
+openSUSE.  Specifying this label in the APT preferences file would require
+the line:
 .IP
 .nf
-Pin: release l=Debian
+Pin: release l=openSUSE
 .fi
 .LP
 All of the \fIPackages\fR and \fIRelease\fR files retrieved from locations
 listed in the \fIsources.list\fR(5) file are stored in the directory
 \fI/var/lib/apt/lists\fR, or in the file named by the variable
 \fIDir::State::Lists\fR in the \fIapt.conf\fR(5) file. For example, the file
-\fIdebian.lcs.mit.edu_debian_dists_unstable_contrib_binary-i386_Release\fR
-contains the \fIRelease\fR file retrieved from the site debian.lcs.mit.edu
-for binary-i386 architecture files from the contrib component of the
-unstable distribution.
+\fIdownload.opensuse.org_tumbleweed_repo_oss_x86_64_Release\fR
+contains the \fIRelease\fR file retrieved from the site
+download.opensuse.org for x86_64 architecture files from the oss component
+of the tumbleweed distribution.
 
 .SH "OPTIONAL LINES IN AN APT PREFERENCES RECORD"
 Each record in the APT preferences file can optionally begin with one or
@@ -338,14 +336,14 @@ higher than the default (500) to all package versions belonging to a
 belonging to other distributions.
 .IP
 .nf
-Explanation: Uninstall or do not install any Debian-originated
+Explanation: Uninstall or do not install any openSUSE-originated
 Explanation: package versions other than those in the stable distro
 Package: *
 Pin: release a=stable
 Pin-Priority: 900
 
 Package: *
-Pin: release o=Debian
+Pin: release o=openSUSE
 Pin-Priority: -10
 .fi
 .LP
@@ -372,7 +370,7 @@ package will not be upgraded again unless this command is given again.
 The following APT preferences file will cause APT to assign a high priority
 to package versions from the testing distribution, a lower priority to
 package versions from the unstable distribution, and a prohibitively low
-priority to package versions from other Debian distributions.
+priority to package versions from other distributions.
 .IP
 .nf
 Package: *
@@ -384,7 +382,7 @@ Pin: release a=unstable
 Pin-Priority: 800
 
 Package: *
-Pin: release o=Debian
+Pin: release o=openSUSE
 Pin-Priority: -10
 .fi
 .LP

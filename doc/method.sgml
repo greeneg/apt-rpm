@@ -323,6 +323,7 @@ The methods supplied by the stock apt are:
 <item>file - For local files
 <item>gzip - (internal) For decompression
 <item>http - For HTTP servers
+<item>https - For HTTPS servers (TLS via OpenSSL)
 </enumlist>
 
 <p>
@@ -343,7 +344,9 @@ rename Packages.decomp to /final/Packages
 <p>
 The http method implements a fully featured HTTP/1.1 client that supports
 deep pipelining and reget. It works best when coupled with an apache 1.3
-server. The file method simply generates failures or success responses with
+server. The https method shares this same implementation, adding a TLS
+layer (via OpenSSL) with peer certificate verification on by default. The
+file method simply generates failures or success responses with
 the filename field set to the proper location. The cdrom method acts the same
 except that it checks that the mount point has a valid cdrom in it. It does 
 this by (effectively) computing a md5 hash of 'ls -l' on the mountpoint.

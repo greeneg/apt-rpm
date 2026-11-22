@@ -28,6 +28,10 @@ APIs, rather than `dpkg`, so it can be used on any RPM-based distribution
 * **Repository metadata support** - native `rpm` header-list and `repomd`/
   `sqlite` metadata formats are both supported for building the package
   cache.
+* **Optional GPG signature verification** - the `contrib/gpg-check/` Lua
+  hook checks package signatures against `librpm`'s keyring before installation.
+  Install the hook and configure `Scripts::PM::Pre:: "gpg-check.lua";` and
+  `RPM::GPG-Check "true";`; see `contrib/gpg-check/README` for details.
 * **GPG signature verification** - package signatures are checked natively
   against `librpm`'s keyring (see `RPM::GPG-Check`) before packages are
   installed.
@@ -38,6 +42,12 @@ APIs, rather than `dpkg`, so it can be used on any RPM-based distribution
   default backend talks to `librpm` directly (`RPM::PM=internal`); an
   external-process backend that shells out to an `rpm` binary is also
   available (`RPM::PM=external`) for sandboxing/wrapper scenarios.
+* **HTTPS transport with certificate verification** - the `https` acquire
+  method uses OpenSSL for TLS, with peer certificate verification on by
+  default (`Acquire::https::Verify-Peer`). Fetching through a forward
+  proxy is supported for both `http` and `https` sources, with `https`
+  tunnelled via the HTTP `CONNECT` method so the proxy never sees
+  decrypted traffic.
 
 ## Key commands
 
@@ -77,10 +87,12 @@ See the `README` in each `contrib/` subdirectory for details.
 ## Building from source
 
 APT-RPM uses the standard GNU autotools build system and requires
-development headers for `rpm` (`librpm`), Lua, `libxml2`, `sqlite3`, and
-`popt`.
+development headers and libraries for `rpm` (`librpm`), Lua, `libxml2`,
+ `sqlite3`, `popt`, zlib, bzip2, and OpenSSL (required for the `https`
+acquire method).
 
 ```sh
+autoreconf -fiv
 ./configure
 make
 make install

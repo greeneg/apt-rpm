@@ -31,6 +31,10 @@
 #include <vector>
 #include <iostream>
 
+#ifdef WITH_SSL
+#include <openssl/ssl.h>
+#endif
+
 using std::cout;
 using std::endl;
 
@@ -67,13 +71,35 @@ class CircleBuf {
 
   public:
     Hashes *Hash;
+#ifdef WITH_SSL
+    // Set by Read()/Write() when the last SSL_read()/SSL_write() call
+    // wanted the opposite readiness direction; Go() uses these to pick
+    // the right fd_set so the pending op is retried on the right event.
+    bool SslWantRead;
+    bool SslWantWrite;
+    // OpenSSL requires a failed SSL_write() to be retried with the exact
+    // same buffer and length, so remember the length used until it succeeds.
+    bool SslWritePending;
+    unsigned long SslWriteLen;
+    // Same requirement applies to SSL_read() retries.
+    bool SslReadPending;
+    unsigned long SslReadLen;
+#endif
 
     // Read data in
+#ifdef WITH_SSL
+    bool Read(int Fd, SSL *Ssl = NULL);
+#else
     bool Read(int Fd);
+#endif
     bool Read(string Data);
 
     // Write data out
+#ifdef WITH_SSL
+    bool Write(int Fd, SSL *Ssl = NULL);
+#else
     bool Write(int Fd);
+#endif
     bool WriteTillEl(string &Data, bool Single = false);
 
     // Control the write limit
@@ -141,10 +167,15 @@ struct ServerState {
     CircleBuf Out;
     int ServerFd;
     URI ServerName;
+#ifdef WITH_SSL
+    SSL *Ssl;
+#endif
 
     bool HeaderLine(string Line);
     bool Comp(URI Other) {
-        return Other.Host == ServerName.Host && Other.Port == ServerName.Port;
+        // Access must match too, otherwise a same-host redirect that changes
+        // scheme (e.g. http -> https) would wrongly reuse the old connection.
+        return Other.Access == ServerName.Access && Other.Host == ServerName.Host && Other.Port == ServerName.Port;
     }
     void Reset() {
         Major = 0;
@@ -156,12 +187,19 @@ struct ServerState {
         time(&Date);
         ServerFd = -1;
         Pipeline = true;
+#ifdef WITH_SSL
+        Ssl = NULL;
+#endif
     }
     int RunHeaders();
     bool RunData();
 
     bool Open();
     bool Close();
+#ifdef WITH_SSL
+    bool ConnectSSL();
+    bool ConnectProxyTunnel();
+#endif
 
     ServerState(URI Srv, HttpMethod *Owner);
     ~ServerState() {
