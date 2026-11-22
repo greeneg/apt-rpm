@@ -100,7 +100,7 @@ AM_CONDITIONAL([WITH_SQLITE3], [test ! "x$have_sqlite3" = "no"])
 AC_SUBST(SQLITE3LIBS)
 
 dnl HTTPS support in the http(s) acquire method requires OpenSSL
-PKG_CHECK_MODULES([SSL], [openssl], [
+PKG_CHECK_MODULES([SSL], [openssl >= 1.1.0], [
       AC_DEFINE([WITH_SSL], [1], [Define if HTTPS support (OpenSSL) is available])
    ],
    [AC_MSG_ERROR([Could not find OpenSSL development files via pkg-config; please install the OpenSSL development package])]
