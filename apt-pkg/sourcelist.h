@@ -26,7 +26,7 @@
 
    All sources have a type associated with them that defines the layout
    of the archive. The exact format of the file is documented in
-   files.sgml.
+   files.md.
 
    The types are mapped through a list of type definitions which handle
    the actual construction of the back end type. After loading a source
